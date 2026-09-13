@@ -110,15 +110,17 @@ void capt_sendrecv(uint16_t cmd, const void *buf, size_t size,
     while (capt_iosize < 6) capt_recv_fragment(6 - capt_iosize, deadline);
     if (WORD(capt_iobuf[0], capt_iobuf[1]) != cmd)
         capt_fail("unexpected printer reply command");
-    size_t binary_length = WORD(capt_iobuf[2], capt_iobuf[3]);
-    size_t bcd_length = BCD(capt_iobuf[2], capt_iobuf[3]);
-    if (binary_length < 6) capt_fail("invalid printer packet length");
-    /* Preserve upstream's BCD-length compatibility at received boundaries.
-     * All fragments must make progress; a short read is not assumed complete. */
-    while (capt_iosize != binary_length && capt_iosize != bcd_length) {
-        if (capt_iosize > binary_length) capt_fail("oversized printer reply");
-        capt_recv_fragment(binary_length - capt_iosize, deadline);
-    }
+    /* CAPT framed replies use a little-endian binary total length (SPECS 1.1).
+     * Never infer BCD from read boundaries: a valid 56-byte LBP2900 reply
+     * (38 00) may be fragmented at byte 38. No evidenced BCD exception is
+     * registered; any future quirk must identify its model AND command.
+     * See docs/PROTOCOL-LENGTHS.md and tests/fixtures. */
+    size_t length = WORD(capt_iobuf[2], capt_iobuf[3]);
+    if (length < 6) capt_fail("invalid printer packet length");
+    if (reply && length - 4 > *reply_size)
+        capt_fail("printer reply exceeds destination");
+    while (capt_iosize < length)
+        capt_recv_fragment(length - capt_iosize, deadline);
     size_t payload_length = capt_iosize - 4;
     if (reply) {
         if (payload_length > *reply_size) capt_fail("printer reply exceeds destination");
