@@ -1,12 +1,13 @@
 # Experimental Rust driver
 
 **Draft experiment: keep using the C driver for ordinary printing.** The Rust
-filter is implemented and can be built, but has not been tested on a physical
-LBP2900. Neither implementation is certified or guaranteed safe.
+filter printed one A4, single-sided, 600 dpi page on an LBP2900 / M1 Pro / macOS
+26.6.2 on 2026-09-13 (source `3ae59529d1b872b33790995b5c70b0b5176707b7`). The owner
+confirmed output visually equivalent to C. Broader real-world validation remains open. Neither implementation is certified or guaranteed safe.
 
 The branch `experiment/rust-driver` keeps C as the default and leaves the installer,
 packages, release workflow and optional Swift menu app unchanged. It also includes
-the small C transfer-polling fix from [PR #2](https://github.com/slpixe/canon-lbp2900-driver/pull/2):
+the small C transfer-polling fix merged into `main` in [PR #2](https://github.com/slpixe/canon-lbp2900-driver/pull/2):
 a hardware test found that basic-status polling at the 16th data chunk stopped the
 job, so both LBP2900 implementations now keep using extended status throughout. The Rust binary
 has its own filename and is never selected automatically. It accepts only an
@@ -54,6 +55,8 @@ cd canon-lbp2900-rust
 
 The output is `build/rust/rastertocapt-lbp2900-rust` and
 `build/rust/CanonLBP2900-Rust-Experimental.ppd`. Nothing is installed or launched.
+**The usual `./build.sh` and `./install.sh --driver` still select C on this branch.**
+Use the explicit Rust build above and separate installation below.
 Builds use `--locked --offline` and do not download dependencies. Toolchain
 installation above is a separate network operation. A compiled filter does not
 require Rust on the recipient's computer. Local signatures are ad hoc, not
@@ -98,7 +101,7 @@ These assume the standard system-owned printer directories already exist (for
 example from the C installation). Do not redirect these paths or relax their
 permissions to make an installation succeed. Add a **separate** USB queue in
 System Settings → Printers & Scanners. Give it a distinct name such as
-`LBP2900 Rust Experiment`, select **Use → Other**, and select the experimental
+`Canon_LBP2900_Rust_Experiment`, select **Use → Other**, and select the experimental
 PPD above. Keep the C queue and default-printer selection. Do not send jobs to
 both queues at the same time: they share the same physical USB device. The current
 menu app targets the C queue and is outside the Rust experiment.
@@ -166,9 +169,15 @@ model, short job-start reply, cancellation and invalid raster input.
 These are regression fixtures, not recordings from a real printer. Agreement with
 C can preserve C's protocol mistakes; it is not independent protocol validation.
 There is no claim of exhaustive fuzzing, formal verification or reproducible binary
-output. No physical printing, sleep/wake or USB recovery result is claimed.
+output. The single-page physical result is recorded in [HARDWARE-TESTING.md](HARDWARE-TESTING.md).
+No sleep/wake or USB recovery result is claimed.
 
-Keep the PR draft and do not switch defaults until all of the following are recorded:
+Keep Rust opt-in while the following adoption work is evaluated. Real users can
+report normal printing in [issues #3–#6](HARDWARE-TESTING.md); dedicated extra test
+pages are not required now. Maintainer protocol and release work is tracked in
+[issue #7](https://github.com/slpixe/canon-lbp2900-driver/issues/7) and
+[issue #8](https://github.com/slpixe/canon-lbp2900-driver/issues/8). Before switching
+the default implementation, review the accumulated evidence for:
 
 - Independent review of the Rust core and every FFI/adapter contract.
 - Sanitized captured CAPT replies/golden raster fixtures, with explicit resolution

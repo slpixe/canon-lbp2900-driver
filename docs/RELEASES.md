@@ -2,7 +2,7 @@
 
 ## Current status
 
-This is a source-first preview, pending physical LBP2900 testing. No Apple Developer ID certificates or notarization credentials are stored in the repository. An ad hoc signature is **not** Developer ID signing. An attestation is **not** notarization or a malware verdict.
+This is a source-first preview with one physical LBP2900 page confirmed for each of C and Rust; see [exact results and open checks](HARDWARE-TESTING.md). The `v2.0.0-alpha.1` draft artifacts predate the transfer-status fix and must not be published as the validated build. Use current `main` source for C. There is no signed, notarized end-user release yet; follow [release work in issue #8](https://github.com/slpixe/canon-lbp2900-driver/issues/8). No Apple Developer ID certificates or notarization credentials are stored in the repository. An ad hoc signature is **not** Developer ID signing. An attestation is **not** notarization or a malware verdict.
 
 CI builds source, runs offline tests, produces packages and can attest their origin. A version-tag release workflow creates only a **draft prerelease**, which a maintainer must review before publishing. Development packages carry `UNSIGNED` in their filenames. Do not recommend those packages as trusted click-to-install software. If macOS blocks a package/app, keep the protection in place; use a reviewed local source build or wait for a correctly signed release.
 
