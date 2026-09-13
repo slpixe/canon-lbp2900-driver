@@ -2,9 +2,20 @@
 
 A source-first, security-hardened fork of the community CAPT driver for Canon LBP2900 / LBP2900B printers. Build it yourself, install only the driver, and add the menu-bar progress app only if you want it.
 
-**Preview: physical printer testing is still required.** Automated checks cover protocol parsing, memory bounds, compression and build output. They do not establish that this fork prints correctly on your printer. This is unofficial software, not endorsed or certified by Canon or Apple. Do not treat the word “hardened” as a guarantee of safety.
+**Source-build preview: single-page printing confirmed in both C and Rust.** On 2026-09-13, an LBP2900 printed one A4, single-sided, 600 dpi page with each implementation on an Apple M1 Pro running macOS 26.6.2. The owner confirmed good C text/border and visually equivalent Rust output. Broader everyday-use and recovery results are tracked in [validation issues](docs/HARDWARE-TESTING.md). This is unofficial software, not endorsed or certified by Canon or Apple. Do not treat the word “hardened” as a guarantee of safety.
 
-Target: **Apple Silicon (M1 and later), macOS 15 Sequoia or later**. Compilation targets macOS 15.0. The initial review host ran macOS 26.6.2; execution on Sequoia and physical printer operation are not yet verified. Intel distribution is not currently supported.
+Target: **Apple Silicon (M1 and later), macOS 15 Sequoia or later**. Compilation targets macOS 15.0. Physical testing used macOS 26.6.2; printing on Sequoia 15.7.4 remains unverified (macOS 15 CI covers builds and offline tests). Intel distribution is not currently supported.
+
+## Choose C or Rust
+
+| Version | Branch | How to build/install | Status |
+| --- | --- | --- | --- |
+| **C — default for normal use** | `main` | Follow the commands below | Hardware transfer fix merged in [PR #2](https://github.com/slpixe/canon-lbp2900-driver/pull/2); one physical page confirmed |
+| **Rust — optional experiment** | `experiment/rust-driver` | [Rust build and separate queue instructions](https://github.com/slpixe/canon-lbp2900-driver/blob/experiment/rust-driver/docs/RUST.md) | Equivalent fix included; one physical page confirmed; [PR #1](https://github.com/slpixe/canon-lbp2900-driver/pull/1) remains experimental |
+
+**Checking out the Rust branch does not select Rust automatically.** The ordinary `build.sh` / `install.sh --driver` still build and install C on either branch. Rust requires `scripts/build-rust.sh` and the separately named filter/PPD and queue described in its instructions. Keep the C queue available and do not send jobs to both queues simultaneously: they share one USB printer.
+
+Choose current `main` source for C. The older `v2.0.0-alpha.1` development artifacts predate the transfer fix; they are not the hardware-validated build. Neither implementation currently has a signed, notarized end-user release.
 
 ## Choose what you need
 
@@ -22,7 +33,7 @@ There is no automatic updater or “self-healing” daemon. No kernel extension,
 2. Clone this repository and inspect the source and scripts. Record the commit you are building; `main` can change.
 
 ```sh
-git clone https://github.com/slpixe/canon-lbp2900-driver.git
+git clone --branch main https://github.com/slpixe/canon-lbp2900-driver.git
 cd canon-lbp2900-driver
 git rev-parse HEAD
 ./build.sh --driver
@@ -72,7 +83,7 @@ A major OS update may remove the filter. Rebuild and reinstall deliberately afte
 
 Open `~/Applications/LBP2900Progress.app` when you need it. Use **Start at Login** in its menu to opt in or out through macOS ServiceManagement. Login registration needs testing on the target Mac, particularly for locally signed builds. An existing application is not overwritten while it might be running: quit and move it to Trash before reinstalling.
 
-The app queries only localhost, requests only your jobs and does not request document titles. It uses a private temporary query file, bounded output, an I/O timeout and a single in-flight query. Counts reflect the driver's completion report; they are not a guarantee that every physical sheet ejected correctly.
+The app watches **only the C queue `Canon_LBP2900_Slpixe`**, not the separate Rust queue. Menu validation is tracked in [issue #6](https://github.com/slpixe/canon-lbp2900-driver/issues/6). The app queries only localhost, requests only your jobs and does not request document titles. It uses a private temporary query file, bounded output, an I/O timeout and a single in-flight query. Counts reflect the driver's completion report; they are not a guarantee that every physical sheet ejected correctly.
 
 ## Releases and trust
 
@@ -92,7 +103,7 @@ For ordinary end-user distribution, the maintainer must provide Developer ID sig
 
 Disable Start at Login in the app before removing it, then Quit and move the application to Trash. The CLI uninstaller removes only this fork's queue/files and package receipt. It does not delete another driver or print queue.
 
-If you installed the original project, read [MIGRATION.md](docs/MIGRATION.md); its old daemon/app are not automatically removed. See [HARDWARE-TESTING.md](docs/HARDWARE-TESTING.md) before recommending this version to another printer owner. See [SECURITY.md](SECURITY.md) for the threat model, changes and remaining risks, and [LANGUAGE.md](docs/LANGUAGE.md) for the Rust/Go assessment.
+If you installed the original project, read [MIGRATION.md](docs/MIGRATION.md); its old daemon/app are not automatically removed. Use the [hardware results and open checklists](docs/HARDWARE-TESTING.md) to report normal real-world use; extra test pages are not required to contribute. See [SECURITY.md](SECURITY.md) for the threat model, changes and remaining risks, and [LANGUAGE.md](docs/LANGUAGE.md) for the Rust/Go assessment.
 
 ## Credits and license
 

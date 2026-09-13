@@ -14,6 +14,6 @@ A sensible migration sequence is:
 4. Differential-test C and Rust outputs, test malformed-input rejection, then compare physical printing, cancellation and recovery.
 5. Switch implementations only after those tests pass, pin dependencies and maintain the new toolchain.
 
-This repository does not contain a Rust/Go port yet. It records the decision rather than claiming that a rewrite alone establishes safety.
+The `experiment/rust-driver` branch now implements the protocol, status, compression and job engine in safe Rust, with an isolated CUPS FFI boundary and a small C adapter. It has zero third-party Rust crates. Both C and Rust have a confirmed single-page LBP2900 print on M1 Pro / macOS 26.6.2. C remains the default; Rust remains experimental pending broader use and independent review. See [Rust instructions](https://github.com/slpixe/canon-lbp2900-driver/blob/experiment/rust-driver/docs/RUST.md) and [remaining validation](HARDWARE-TESTING.md). No Go port is present. A language change reduces certain memory risks; it does not establish protocol correctness or make system CUPS memory-safe.
 
 References: [Rust FFI safety](https://doc.rust-lang.org/nomicon/ffi.html), [unsafe Rust](https://doc.rust-lang.org/book/ch20-01-unsafe-rust.html), [Go cgo documentation](https://pkg.go.dev/cmd/cgo).

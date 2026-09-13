@@ -1,4 +1,4 @@
-This draft contains development artifacts from the hardened source fork. **Hardware printing, Sequoia execution and end-user package installation have not yet been validated.**
+This draft contains development artifacts from the hardened source fork. **Check the exact source commit against docs/HARDWARE-TESTING.md: the original v2.0.0-alpha.1 artifacts predate the transfer-status fix.** Current C and experimental Rust source each have one physical page confirmed on macOS 26.6.2. Sequoia execution and end-user package installation remain unverified; a source result does not validate older packages.
 
 The packages are explicitly UNSIGNED for distribution (executables may have only local ad hoc signatures). They are not Apple-notarized click-to-install releases. Do not disable macOS security protections to install them. Build the reviewed source locally for development, or wait for a signed, notarized and hardware-tested release.
 

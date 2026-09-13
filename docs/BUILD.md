@@ -1,5 +1,7 @@
 # Building from source
 
+**These instructions build C from `main` (and still select C on the Rust branch).** For the opt-in Rust filter, use [the Rust branch instructions](https://github.com/slpixe/canon-lbp2900-driver/blob/experiment/rust-driver/docs/RUST.md).
+
 Supported output target: arm64, macOS 15.0+. Build on macOS using Apple's Xcode Command Line Tools. The normal build uses no Homebrew packages, vendored executable, network fetch, or root access. The C filter links the system CUPS and C runtime; the optional Swift app uses system frameworks and `/usr/bin/ipptool`.
 
 ```sh
@@ -46,7 +48,7 @@ Python 3 is needed to orchestrate tests; it is not a runtime dependency of the d
 
 Tests use AddressSanitizer and UndefinedBehaviorSanitizer. The CUPS backend is replaced with an in-memory double; no job is submitted and no printer, daemon, network service or root privilege is needed. Coverage includes packet fragmentation and rejection, payload lengths and destination bounds, status-record lengths, empty/whitespace device IDs, cancellation/deadline exits, raster limits, compressor output exhaustion, 80 compression/decompression round-trips and Swift progress parsing. The inherited decompressor is a test oracle, not part of the installed software.
 
-Syntax checks, static analysis, PPD regeneration and installer policy tests run in CI. Sanitizer tests and an analyzer pass cannot prove absence of defects. [Hardware testing](HARDWARE-TESTING.md) remains a release gate.
+Syntax checks, static analysis, PPD regeneration and installer policy tests run in CI. Sanitizer tests and an analyzer pass cannot prove absence of defects. Single-page hardware results and open real-world checks are recorded in [HARDWARE-TESTING.md](HARDWARE-TESTING.md). Source-preview users can report results during ordinary use; signed end-user release work is tracked separately.
 
 ## Generate the PPD
 
