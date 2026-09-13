@@ -129,7 +129,7 @@ def normalize(packets):
 
 with tempfile.TemporaryDirectory(prefix='lbp-rust-test-') as temp:
     raster = Path(temp)/'synthetic.raster'
-    for width,height,pages in [(8,2,1),(4736,141,2),(8192,256,1)]:
+    for width,height,pages in [(8,2,1),(4736,141,2),(8192,256,1),(4736,1200,1)]:
         raster.write_bytes(subprocess.check_output([str(ROOT/'build/tests/rust-raster'),str(width),str(height),str(pages)]))
         if width == 8:
             subprocess.run([str(ROOT/'build/tests/rust-adapter'),str(raster)],check=True,timeout=5)
@@ -137,6 +137,7 @@ with tempfile.TemporaryDirectory(prefix='lbp-rust-test-') as temp:
         rust = normalize(run(RUST,raster,expected_pages=pages))
         assert c == rust, ('C/Rust CAPT transcript differs',width,height,pages,
             next(((i,a[:100],b[:100]) for i,(a,b) in enumerate(zip(c,rust)) if a!=b), (len(c),len(rust))))
+        assert all(packet[:2] != b'\xa0\xe0' for packet in rust), 'LBP2900 must never switch to basic-status polling'
         print(f'PASS real CUPS C/Rust transcript: {width}x{height}, {pages} page(s)', flush=True)
     for mode in ['wrong-model','short-job','cancel']:
         run(RUST,raster,mode)

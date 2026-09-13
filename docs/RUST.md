@@ -4,8 +4,11 @@
 filter is implemented and can be built, but has not been tested on a physical
 LBP2900. Neither implementation is certified or guaranteed safe.
 
-The branch `experiment/rust-driver` leaves the C source, default build, installer,
-packages, release workflow and optional Swift menu app unchanged. The Rust binary
+The branch `experiment/rust-driver` keeps C as the default and leaves the installer,
+packages, release workflow and optional Swift menu app unchanged. It also includes
+the small C transfer-polling fix from [PR #2](https://github.com/slpixe/canon-lbp2900-driver/pull/2):
+a hardware test found that basic-status polling at the 16th data chunk stopped the
+job, so both LBP2900 implementations now keep using extended status throughout. The Rust binary
 has its own filename and is never selected automatically. It accepts only an
 IEEE-1284 `MDL:LBP2900` or `MODEL:LBP2900` identification; other models are rejected.
 
@@ -156,8 +159,8 @@ and page accounting. It compares 160 encoder cases to the C encoder under
 ASan/UBSan, in debug and release Rust builds. The CUPS adapter also has
 ASan/UBSan buffer-capacity, metadata-copy and handle/file-ownership tests. A synthetic backend then exercises
 both executable filters through **real system CUPS raster and fd 3/4 calls** and
-compares complete CAPT transcripts for three raster jobs (including multiple
-pages), normalizing only wall-clock timestamps. Failure scenarios include a wrong
+compares complete CAPT transcripts for four raster jobs (including multiple
+pages and transfer across the 16th-chunk polling boundary), normalizing only wall-clock timestamps. Failure scenarios include a wrong
 model, short job-start reply, cancellation and invalid raster input.
 
 These are regression fixtures, not recordings from a real printer. Agreement with

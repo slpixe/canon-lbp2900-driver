@@ -204,7 +204,9 @@ impl<T: Transport> Driver<T> {
                     for chunk in band.chunks(0xff00) {
                         sends += 1;
                         if sends.is_multiple_of(16) {
-                            self.poll(30, false, |s| !s.busy())?;
+                            // LBP2900 requires extended status here too; hardware rejected
+                            // the legacy basic-status variant at the 16th chunk.
+                            self.poll(30, true, |s| !s.busy())?;
                         }
                         self.link.send(0xc0a0, chunk)?;
                     }
