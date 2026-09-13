@@ -1,5 +1,7 @@
 # Canon LBP2900 driver for Apple Silicon
 
+> **Experimental Rust branch:** C remains the default. See [Rust build, comparison tests and validation gates](docs/RUST.md) for the separately named, unvalidated LBP2900 Rust filter.
+
 A source-first, security-hardened fork of the community CAPT driver for Canon LBP2900 / LBP2900B printers. Build it yourself, install only the driver, and add the menu-bar progress app only if you want it.
 
 **Preview: physical printer testing is still required.** Automated checks cover protocol parsing, memory bounds, compression and build output. They do not establish that this fork prints correctly on your printer. This is unofficial software, not endorsed or certified by Canon or Apple. Do not treat the word “hardened” as a guarantee of safety.

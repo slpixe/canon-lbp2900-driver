@@ -14,6 +14,6 @@ A sensible migration sequence is:
 4. Differential-test C and Rust outputs, test malformed-input rejection, then compare physical printing, cancellation and recovery.
 5. Switch implementations only after those tests pass, pin dependencies and maintain the new toolchain.
 
-This repository does not contain a Rust/Go port yet. It records the decision rather than claiming that a rewrite alone establishes safety.
+The `experiment/rust-driver` branch now contains an experimental Rust LBP2900 filter. It keeps the C implementation as the default and ports the protocol, status, compression and job engine to a safe Rust core with an isolated CUPS adapter. See [the Rust experiment](RUST.md) for build instructions, evidence and adoption gates. It has not been validated on physical hardware; no Go port is present.
 
 References: [Rust FFI safety](https://doc.rust-lang.org/nomicon/ffi.html), [unsafe Rust](https://doc.rust-lang.org/book/ch20-01-unsafe-rust.html), [Go cgo documentation](https://pkg.go.dev/cmd/cgo).

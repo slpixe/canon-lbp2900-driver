@@ -33,3 +33,6 @@ captdriver/tests/captdefilter
 *.p8
 *.key
 *.mobileprovision
+
+# Experimental Rust build output
+/rust/target/
