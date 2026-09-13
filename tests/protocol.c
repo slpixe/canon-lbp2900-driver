@@ -11,12 +11,13 @@
 #include <stdlib.h>
 
 static unsigned char packet[65535];
-static size_t packet_size, offset, fragment = 3;
+static size_t packet_size, offset, fragment = 3, split;
 static int bad_id;
 ssize_t cupsBackChannelRead(char *out, size_t n, double timeout) {
     assert(timeout > 0 && timeout <= 15.0);
     if (offset == packet_size) return 0;
     if (n > fragment) n = fragment;
+    if (split && offset < split && n > split - offset) n = split - offset;
     if (n > packet_size - offset) n = packet_size - offset;
     memcpy(out, packet + offset, n); offset += n;
     return (ssize_t)n;
@@ -58,6 +59,26 @@ int main(int argc, char **argv) {
     if (!strcmp(argv[1], "bad-id")) { bad_id=1; capt_identify(); return 2; }
     if (!strcmp(argv[1], "cancel")) { capt_cancelled=1; capt_check_cancel(); return 2; }
     if (!strcmp(argv[1], "deadline")) { capt_check_deadline(capt_now()-1, "test timeout"); return 2; }
+    if (!strcmp(argv[1], "fragmentation")) {
+        unsigned char fixture[56], out[64];
+        FILE *f = fopen("tests/fixtures/lbp2900-ident.hex", "r"); assert(f);
+        for (size_t i=0;i<sizeof(fixture);i++) { unsigned x; assert(fscanf(f, "%x", &x)==1 && x<=255); fixture[i]=(unsigned char)x; }
+        fclose(f);
+        /* Every two-fragment split, plus every fixed read size. A second reply
+         * makes early acceptance visible as unread bytes, not just bad payload. */
+        for (size_t mode=0;mode<2;mode++) for (size_t n=1;n<=56;n++) {
+            memcpy(packet,fixture,56);
+            memcpy(packet+56,"\xa1\xa1\x06\x00\x00\x00",6);
+            packet_size=62; offset=0; split=mode==0?n:0; fragment=mode==1?n:65535;
+            size_t capacity=sizeof(out);
+            capt_sendrecv(CAPT_IDENT,NULL,0,out,&capacity);
+            assert(capacity==52 && offset==56 && !memcmp(out,fixture+4,52));
+            capacity=sizeof(out); split=0;
+            capt_sendrecv(CAPT_IDENT,NULL,0,out,&capacity);
+            assert(capacity==2 && offset==62);
+        }
+        return 0;
+    }
     make_packet(44);
     unsigned char out[65535]; memset(out, 0xcc, sizeof(out));
     size_t capacity = sizeof(out);
