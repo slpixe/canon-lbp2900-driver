@@ -46,19 +46,6 @@ pub fn combined(command: u16, records: &[(u16, &[u8])]) -> Result<Vec<u8>> {
     out[2..4].copy_from_slice(&len);
     Ok(out)
 }
-fn lengths(bytes: &[u8]) -> Result<(usize, usize)> {
-    let binary = u16::from_le_bytes([bytes[2], bytes[3]]) as usize;
-    if binary < 6 {
-        return Err(Error::InvalidPacket);
-    }
-    let digits = [bytes[3] >> 4, bytes[3] & 15, bytes[2] >> 4, bytes[2] & 15];
-    let bcd = if digits.iter().all(|n| *n < 10) {
-        digits.iter().fold(0usize, |n, d| n * 10 + *d as usize)
-    } else {
-        binary
-    };
-    Ok((binary, bcd))
-}
 pub fn identify(data: &[u8]) -> Result<()> {
     if data.len() > 4096 || data.contains(&0) {
         return Err(Error::UnsupportedPrinter);
@@ -97,16 +84,16 @@ impl<T: Transport> Link<T> {
         if u16::from_le_bytes([data[0], data[1]]) != command {
             return Err(Error::UnexpectedCommand);
         }
-        let (binary, bcd) = lengths(&data)?;
-        // Preserve C's legacy BCD-at-fragment-boundary behavior. This ambiguous
-        // device convention is not a proof of protocol correctness; see RUST.md.
-        while size != binary && size != bcd {
-            if size > binary {
-                return Err(Error::InvalidPacket);
-            }
-            let before = size;
-            self.read_once(&mut data, &mut size, binary - before, deadline)?;
+        // LBP2900 framed replies use binary little-endian total lengths.
+        // Never infer an encoding from read boundaries; see PROTOCOL-LENGTHS.md.
+        let length = u16::from_le_bytes([data[2], data[3]]) as usize;
+        if length < 6 {
+            return Err(Error::InvalidPacket);
         }
+        if length - 4 > capacity {
+            return Err(Error::Capacity);
+        }
+        self.fragment(&mut data, &mut size, length, deadline)?;
         let payload = &data[4..size];
         if payload.len() > capacity {
             return Err(Error::Capacity);

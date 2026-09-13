@@ -148,11 +148,11 @@ An individual status request can add up to 15 seconds to a surrounding wait.
 Resource exhaustion, hardware state, protocol bugs and supply-chain compromise
 still need independent controls. Rust is not a malware detector.
 
-The C implementation's legacy binary/BCD reply-length convention is deliberately
-preserved at fragment boundaries for comparison. The same header can be ambiguous;
-fragmentation can affect which length is accepted. The implementation bounds
-memory, but **does not resolve that protocol ambiguity**. Capture sanitized real
-LBP2900 replies before replacing it with an explicit model/command length policy.
+CAPT framed replies now use the binary little-endian total length consistently.
+The former binary/BCD choice at fragment boundaries is removed in C and Rust.
+A published LBP2900 capability fixture reproduces the old early-termination bug;
+every split and fixed fragment size is covered by shared-fixture tests. Unknown
+BCD-short variants fail closed. See [protocol length evidence and limits](PROTOCOL-LENGTHS.md).
 
 ## Evidence and gates before adoption
 
@@ -180,8 +180,7 @@ pages are not required now. Maintainer protocol and release work is tracked in
 the default implementation, review the accumulated evidence for:
 
 - Independent review of the Rust core and every FFI/adapter contract.
-- Sanitized captured CAPT replies/golden raster fixtures, with explicit resolution
-  of the binary/BCD length ambiguity and additional automated state scenarios.
+- Sanitized captured CAPT replies/golden raster fixtures, and additional automated state scenarios beyond the published identification fixture.
 - Longer coverage-guided fuzzing of packet, status and raster metadata boundaries.
 - On an M1 with Sequoia 15.7.4: single/multiple pages, A4/Letter, margins, dense
   graphics, copies, toner settings, supported media and manual duplex where used.

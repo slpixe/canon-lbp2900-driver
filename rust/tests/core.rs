@@ -13,6 +13,8 @@ struct Mock {
     output: Vec<Vec<u8>>,
     time: Duration,
     fragment: usize,
+    split: usize,
+    offset: usize,
     cancel: bool,
     busy: bool,
     no_paper: bool,
@@ -59,11 +61,15 @@ impl Transport for Mock {
     }
     fn read(&mut self, out: &mut [u8], _: Duration) -> Result<usize> {
         self.reads += 1;
-        let n = out.len().min(self.input.len()).min(if self.fragment == 0 {
+        let mut n = out.len().min(self.input.len()).min(if self.fragment == 0 {
             usize::MAX
         } else {
             self.fragment
         });
+        if self.split > self.offset {
+            n = n.min(self.split - self.offset);
+        }
+        self.offset += n;
         for byte in out.iter_mut().take(n) {
             *byte = self.input.pop_front().unwrap();
         }
@@ -167,17 +173,47 @@ fn fragmented_replies_and_capacity() {
     assert_eq!(Link { io: mock }.request(1, &[], 7), Err(Error::Capacity));
 }
 #[test]
-fn bcd_boundary_compatibility() {
-    let mut wire = vec![0xa8, 0xa0, 0x44, 0];
-    wire.extend_from_slice(&[0; 40]);
-    let mock = Mock {
-        input: wire.into(),
-        ..Default::default()
-    };
-    assert_eq!(
-        Link { io: mock }.request(0xa0a8, &[], 40).unwrap().len(),
-        40
-    );
+fn device_fixture_is_independent_of_fragmentation() {
+    let wire: Vec<u8> = include_str!("../../tests/fixtures/lbp2900-ident.hex")
+        .split_whitespace()
+        .map(|s| u8::from_str_radix(s, 16).unwrap())
+        .collect();
+    assert_eq!(wire.len(), 56);
+    for mode in 0..2 {
+        for n in 1..=56 {
+            let mut input: VecDeque<u8> = wire.clone().into();
+            input.extend([0xa1, 0xa1, 6, 0, 0, 0]);
+            let mut link = Link {
+                io: Mock {
+                    input,
+                    split: if mode == 0 { n } else { 0 },
+                    fragment: if mode == 1 { n } else { 0 },
+                    ..Default::default()
+                },
+            };
+            assert_eq!(link.request(0xa1a1, &[], 52).unwrap(), wire[4..]);
+            assert_eq!(link.io.input.len(), 6);
+            link.io.split = 0;
+            assert_eq!(link.request(0xa1a1, &[], 2).unwrap(), [0, 0]);
+            assert!(link.io.input.is_empty());
+        }
+    }
+}
+#[test]
+fn undocumented_bcd_short_reply_is_rejected() {
+    for fragment in 1..=44 {
+        let mut wire = vec![0xa8, 0xa0, 0x44, 0];
+        wire.extend_from_slice(&[0; 40]);
+        let mock = Mock {
+            input: wire.into(),
+            fragment,
+            ..Default::default()
+        };
+        assert_eq!(
+            Link { io: mock }.request(0xa0a8, &[], 100),
+            Err(Error::Truncated)
+        );
+    }
 }
 #[test]
 fn rejects_bad_packets() {
