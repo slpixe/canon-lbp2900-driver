@@ -10,6 +10,6 @@ cc "${flags[@]}" tests/send-band.c captdriver/src/generic-ops.c captdriver/src/h
 python3 tests/run.py
 build/tests/send-band
 if [ "$(uname -s)" = Darwin ]; then
-  xcrun swiftc -module-cache-path build/swift-cache menubar/ProgressModel.swift tests/menu-model.swift -o build/tests/menu-model
+  xcrun swiftc -module-cache-path build/swift-cache menubar/ProgressModel.swift menubar/PrinterModel.swift tests/menu-model.swift -o build/tests/menu-model
   build/tests/menu-model
 fi

@@ -3,126 +3,114 @@ import Cocoa
 import ServiceManagement
 
 final class ProgressWatcher: NSObject {
-    private let queue = "Canon_LBP2900_Slpixe"
+    private var choice = DriverChoice(rawValue: UserDefaults.standard.string(forKey: "monitoredDriver") ?? "") ?? .c
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let statusLine = NSMenuItem(title: "Checking printer…", action: nil, keyEquivalent: "")
     private let loginItem = NSMenuItem(title: "Start at Login", action: #selector(toggleLogin), keyEquivalent: "")
+    private var choices: [NSMenuItem] = []
     private var timer: Timer?
-    private var inFlight = false // accessed only on the main queue
+    private var inFlight = false
+    private var closing = false
+    private var setup: SetupWindow?
     private let queryDirectory: URL
     private let queryFile: URL
-
     override init() {
         queryDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("lbp2900-" + UUID().uuidString)
         queryFile = queryDirectory.appendingPathComponent("jobs.test")
         super.init()
         do {
-            try FileManager.default.createDirectory(at: queryDirectory, withIntermediateDirectories: false,
-                                                    attributes: [.posixPermissions: 0o700])
-            let query = """
-            { OPERATION Get-Jobs
-              GROUP operation-attributes-tag
-              ATTR charset attributes-charset utf-8
-              ATTR naturalLanguage attributes-natural-language en
-              ATTR uri printer-uri $uri
-              ATTR name requesting-user-name $user
-              ATTR boolean my-jobs true
-              ATTR integer limit 1
-              ATTR keyword which-jobs not-completed
-              ATTR keyword requested-attributes job-id,job-media-sheets-completed,job-impressions
-            }
-            """
-            try Data(query.utf8).write(to: queryFile, options: .atomic)
+            try FileManager.default.createDirectory(at: queryDirectory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+            try Data(jobsQuery.utf8).write(to: queryFile, options: .atomic)
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: queryFile.path)
         } catch {
             let alert = NSAlert(); alert.messageText = "Cannot create a private printer query file"
-            alert.informativeText = error.localizedDescription; alert.runModal()
-            NSApp.terminate(nil); return
+            alert.informativeText = error.localizedDescription; alert.runModal(); NSApp.terminate(nil); return
         }
-        statusItem.button?.title = "🖨"
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Canon LBP2900", action: nil, keyEquivalent: ""))
-        menu.addItem(statusLine)
-        menu.addItem(.separator())
-        loginItem.target = self
-        menu.addItem(loginItem)
-        refreshLoginState()
+        menu.addItem(statusLine); menu.addItem(.separator())
+        for (index, driver) in DriverChoice.allCases.enumerated() {
+            let item = NSMenuItem(title: "Monitor \(driver.label)", action: #selector(selectDriver(_:)), keyEquivalent: "")
+            item.tag = index; item.target = self; menu.addItem(item); choices.append(item)
+        }
+        let configure = NSMenuItem(title: "Set Up Printer…", action: #selector(showSetup), keyEquivalent: "")
+        configure.target = self; menu.addItem(configure); menu.addItem(.separator())
+        loginItem.target = self; menu.addItem(loginItem); refreshLoginState()
         let quit = NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q")
-        quit.target = self; menu.addItem(quit)
-        statusItem.menu = menu
+        quit.target = self; menu.addItem(quit); statusItem.menu = menu
+        updateSelection()
         timer = Timer.scheduledTimer(timeInterval: 3, target: self, selector: #selector(poll), userInfo: nil, repeats: true)
+        // Keep polling while a user has the menu open.
+        RunLoop.main.add(timer!, forMode: .common)
         poll()
     }
-    private func refreshLoginState() {
-        loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
+    private func updateSelection() {
+        for (i, item) in choices.enumerated() { item.state = DriverChoice.allCases[i] == choice ? .on : .off }
+        statusItem.button?.title = "🖨 \(choice.shortLabel)"
+        statusLine.title = "Checking \(choice.shortLabel) queue…"
+        statusItem.button?.setAccessibilityLabel("Canon LBP2900 \(choice.shortLabel) progress")
     }
+    @objc private func selectDriver(_ item: NSMenuItem) { choose(DriverChoice.allCases[item.tag]) }
+    private func choose(_ selected: DriverChoice) {
+        choice = selected; UserDefaults.standard.set(choice.rawValue, forKey: "monitoredDriver")
+        updateSelection(); poll()
+    }
+    @objc private func showSetup() {
+        if setup == nil { setup = SetupWindow { [weak self] choice in self?.choose(choice) } }
+        setup?.show()
+    }
+    private func refreshLoginState() { loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off }
     @objc private func toggleLogin() {
         do {
             if SMAppService.mainApp.status == .enabled { try SMAppService.mainApp.unregister() }
             else { try SMAppService.mainApp.register() }
         } catch {
             let alert = NSAlert(); alert.messageText = "Could not change login startup"
-            alert.informativeText = "Install this app in Applications first. " + error.localizedDescription
-            alert.runModal()
+            alert.informativeText = "Install this app in Applications first. " + error.localizedDescription; alert.runModal()
         }
         refreshLoginState()
     }
     @objc private func quitApp() {
-        timer?.invalidate()
+        guard setup?.isBusy != true else { return }
+        closing = true; timer?.invalidate()
         try? FileManager.default.removeItem(at: queryDirectory)
         NSApp.terminate(nil)
     }
-    private func query() -> (Bool, JobProgress?) {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/ipptool")
-        // ipptool applies its own I/O timeout. Only one query can be in flight.
-        task.arguments = ["-T", "5", "-tv", "ipp://localhost/printers/\(queue)", queryFile.path]
-        let output = Pipe()
-        task.standardOutput = output
-        task.standardError = FileHandle.nullDevice
-        do { try task.run() } catch { return (false, nil) }
-        // A separate watchdog also stops a helper that fails to honor its timeout.
-        let watchdog = DispatchWorkItem { if task.isRunning { task.terminate() } }
-        DispatchQueue.global().asyncAfter(deadline: .now() + 8, execute: watchdog)
-        defer { watchdog.cancel() }
-        var data = Data()
-        while true {
-            guard let chunk = try? output.fileHandleForReading.read(upToCount: 4096), !chunk.isEmpty else { break }
-            if data.count + chunk.count > 65536 {
-                task.terminate(); try? output.fileHandleForReading.close()
-                task.waitUntilExit(); return (false, nil)
-            }
-            data.append(chunk)
-        }
-        task.waitUntilExit()
-        guard task.terminationStatus == 0, let text = String(data: data, encoding: .utf8) else { return (false, nil) }
-        return (true, parseProgress(text))
-    }
     @objc private func poll() {
-        guard !inFlight else { return }
+        guard !inFlight && !closing else { return }
         inFlight = true
+        let selected = choice
         DispatchQueue.global(qos: .utility).async {
-            let (available, job) = self.query()
+            let result = systemQuery("/usr/bin/ipptool", ["-T", "5", "-tv", "ipp://localhost/printers/\(selected.queue)", self.queryFile.path])
             DispatchQueue.main.async {
                 self.inFlight = false
-                guard available else {
-                    self.statusItem.button?.title = "🖨 ?"
-                    self.statusLine.title = "Queue unavailable — install the driver and add the printer"
-                    return
+                guard !self.closing else { return }
+                guard self.choice == selected else { self.poll(); return }
+                let prefix = "🖨 \(selected.shortLabel)"
+                guard result.status == 0 else {
+                    self.statusItem.button?.title = "\(prefix) ?"
+                    self.statusLine.title = "\(selected.shortLabel) queue unavailable — use Set Up Printer…"; return
                 }
-                guard let job = job else {
-                    self.statusItem.button?.title = "🖨"
-                    self.statusLine.title = "No active jobs for your account"
-                    return
+                if queuePaused(result.output) {
+                    self.statusItem.button?.title = "\(prefix) ⏸"
+                    self.statusLine.title = "Queue paused — check macOS Print Center"; return
+                }
+                guard let job = parseProgress(result.output) else {
+                    self.statusItem.button?.title = prefix
+                    self.statusLine.title = "No active jobs for your account"; return
                 }
                 let count = job.total.map { "\(job.current)/\($0)" } ?? "\(job.current)"
-                self.statusItem.button?.title = "🖨 \(count)"
-                self.statusLine.title = "Pages reported complete: \(count)"
+                self.statusItem.button?.title = "\(prefix) \(count)"
+                self.statusLine.title = (job.held ? "Job held — " : "") + "Sheets reported complete: \(count)"
             }
         }
     }
 }
 let application = NSApplication.shared
-application.setActivationPolicy(.accessory)
-let watcher = ProgressWatcher()
+let setupOnly = CommandLine.arguments.contains("--setup-only")
+application.setActivationPolicy(setupOnly ? .regular : .accessory)
+var watcher: ProgressWatcher?
+var setupWindow: SetupWindow?
+if setupOnly { setupWindow = SetupWindow(quitOnClose: true) { _ in }; setupWindow?.show() }
+else { watcher = ProgressWatcher() }
 application.run()

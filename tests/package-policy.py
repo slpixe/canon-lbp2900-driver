@@ -22,3 +22,9 @@ with tempfile.TemporaryDirectory(dir=root/'build') as temporary:
     assert (payload/files[0]).stat().st_mode & 0o777 == 0o644
     assert (payload/files[1]).stat().st_mode & 0o777 == 0o755
 print('Package has exactly the two intended files, expected modes, no scripts, OS/CPU gating')
+
+payload = root/'build/LBP2900Progress.app/Contents/Resources/DriverPayload'
+assert sorted(p.name for p in payload.iterdir()) == ['CanonLBP2900-Slpixe.ppd', 'install-driver.sh', 'rastertocapt-lbp2900']
+assert (payload/'install-driver.sh').read_bytes() == (root/'scripts/install-driver.sh').read_bytes()
+assert (payload/'rastertocapt-lbp2900').read_bytes() == (root/'build/rastertocapt-lbp2900').read_bytes()
+print('Setup app contains only fresh C payload and reviewed helper; no stale Rust payload')

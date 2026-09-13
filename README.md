@@ -15,7 +15,7 @@ Target: **Apple Silicon (M1 and later), macOS 15 Sequoia or later**. Compilation
 | **C — default for normal use** | `main` | Follow the commands below | Hardware transfer fix merged in [PR #2](https://github.com/slpixe/canon-lbp2900-driver/pull/2); one physical page confirmed |
 | **Rust — optional experiment** | `experiment/rust-driver` | [Rust build and separate queue instructions](https://github.com/slpixe/canon-lbp2900-driver/blob/experiment/rust-driver/docs/RUST.md) | Equivalent fix included; one physical page confirmed; [PR #1](https://github.com/slpixe/canon-lbp2900-driver/pull/1) remains experimental |
 
-**Checking out the Rust branch does not select Rust automatically.** The ordinary `build.sh` / `install.sh --driver` still build and install C on either branch. Rust requires `scripts/build-rust.sh` and the separately named filter/PPD and queue described in its instructions. Keep the C queue available and do not send jobs to both queues simultaneously: they share one USB printer.
+**Checking out the Rust branch does not select Rust automatically.** The ordinary `build.sh` / `install.sh --driver` still select C on either branch. Use `./setup.sh --rust` on the Rust branch for an explicit C/Rust installation choice, or its documented manual build/install path. Keep the C queue available and do not send jobs to both queues simultaneously: they share one USB printer.
 
 Choose current `main` source for C. The older `v2.0.0-alpha.1` development artifacts predate the transfer fix; they are not the hardware-validated build. Neither implementation currently has a signed, notarized end-user release.
 
@@ -44,9 +44,21 @@ git rev-parse HEAD
 
 Builds run as your normal account. **Never run the build with sudo.** The script compiles source using Apple's installed tools and system CUPS; it does not download dependencies or fall back to a supplied executable. No prebuilt executable is tracked in the current source tree. Older binaries remain in upstream Git history for provenance.
 
-For the optional app, use `./build.sh --menubar`. To build both, use `./build.sh --all`. Detailed compiler commands, tests, output inspection and limitations are in [BUILD.md](docs/BUILD.md).
+For the optional app, use `./build.sh --menubar` (includes a freshly compiled C payload for opt-in setup; building the app installs nothing). To build both, use `./build.sh --all`. Detailed compiler commands, tests, output inspection and limitations are in [BUILD.md](docs/BUILD.md).
 
-## Install the driver
+## Install with the printer-selection window
+
+From your reviewed source checkout, run:
+
+```sh
+./setup.sh
+```
+
+This builds locally and opens **Set up Canon LBP2900**. Click **Search for printers**, select your connected USB printer, choose **C — recommended**, and click **Review installation…**. The review names the queue to create/update. Only **Install driver** requests administrator authorization. Click **Done** afterward; the driver works without the app running. Searching or cancelling installs nothing. The default printer, sharing and login startup are not changed.
+
+The same window is available under **Set Up Printer…** in the optional menu app. To include Rust installation, use the experimental branch and `./setup.sh --rust`; this explicitly builds both payloads using the pinned Rust toolchain. Without that option, Rust installation is disabled, but monitoring an already installed Rust queue still works.
+
+## Install the driver from the command line
 
 Connect and power on the printer. List available device URIs:
 
@@ -85,7 +97,7 @@ A major OS update may remove the filter. Rebuild and reinstall deliberately afte
 
 Open `~/Applications/LBP2900Progress.app` when you need it. Use **Start at Login** in its menu to opt in or out through macOS ServiceManagement. Login registration needs testing on the target Mac, particularly for locally signed builds. An existing application is not overwritten while it might be running: quit and move it to Trash before reinstalling.
 
-The app watches **only the C queue `Canon_LBP2900_Slpixe`**, not the separate Rust queue. Menu validation is tracked in [issue #6](https://github.com/slpixe/canon-lbp2900-driver/issues/6). The app queries only localhost, requests only your jobs and does not request document titles. It uses a private temporary query file, bounded output, an I/O timeout and a single in-flight query. Counts reflect the driver's completion report; they are not a guarantee that every physical sheet ejected correctly.
+Choose **Monitor C** or **Monitor Rust** in the app menu. It watches the corresponding fixed queue (`Canon_LBP2900_Slpixe` or `Canon_LBP2900_Rust_Experiment`) and remembers your choice. Switching monitoring does not install a driver, move jobs or change your default printer. Menu validation is tracked in [issue #6](https://github.com/slpixe/canon-lbp2900-driver/issues/6). The app queries only localhost, requests only your jobs and does not request document titles. It uses a private temporary query file, bounded output, a helper timeout and one query at a time. Held jobs and paused queues are distinguished from idle queues. Counts compare completed sheets to total sheets when the total is available, otherwise show only the completed count. Counts reflect the driver's completion report; they are not a guarantee that every physical sheet ejected correctly.
 
 ## Releases and trust
 

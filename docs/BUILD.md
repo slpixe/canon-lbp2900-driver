@@ -9,7 +9,10 @@ xcode-select --install  # only if Apple's tools are missing
 ./build.sh --driver
 ./build.sh --menubar    # optional
 ./build.sh --all        # both
+./setup.sh             # build and open one-time graphical setup (no install until confirmed)
 ```
+
+The menu build embeds a freshly built C filter/PPD and installer helper for explicit setup. On the Rust branch, `./build.sh --menubar --with-rust` additionally rebuilds Rust; ordinary builds discard any stale Rust payload.
 
 The script is short enough to inspect before use. `build/` contains all generated output. Ad hoc signing of your locally built app supplies a local structural signature, not a publisher identity or notarization.
 

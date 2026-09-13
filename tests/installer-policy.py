@@ -2,7 +2,7 @@
 from pathlib import Path
 import subprocess
 root = Path(__file__).resolve().parent.parent
-for command in [ ['./setup.sh'], ['./install.sh', '--driver', '--dry-run'], ['./install.sh', '--menubar', '--dry-run'], ['./uninstall.sh', '--driver', '--dry-run'] ]:
+for command in [ ['./setup.sh', '--help'], ['./install.sh', '--driver', '--dry-run'], ['./install.sh', '--menubar', '--dry-run'], ['./uninstall.sh', '--driver', '--dry-run'] ]:
     r = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=10)
     assert r.returncode == 0, (command, r.stderr)
     assert 'sudo' not in r.stderr.lower()
@@ -17,3 +17,10 @@ for path in [*root.glob('*.sh'), *root.glob('scripts/*.sh'), *root.glob('menubar
 assert not list((root/'prebuilt').rglob('rastertocapt'))
 assert 'rastertocapt-lbp2900' in (root/'ppd/CanonLBP-2900-3000.ppd').read_text()
 print('Installer choices, rejection and policy checks passed (no installation)')
+
+for variant in [[], ['--rust']]:
+    r = subprocess.run(['/bin/bash', 'scripts/install-driver.sh', *variant, '--dry-run', 'install', '/tmp/local-filter', '/tmp/local.ppd', 'usb://Canon/LBP2900?serial=test'], cwd=root, capture_output=True, text=True, timeout=10)
+    assert r.returncode == 0, r.stderr
+    expected = 'Canon_LBP2900_Rust_Experiment' if variant else 'Canon_LBP2900_Slpixe'
+    assert expected in r.stdout
+print('C/Rust privileged helper targets verified by dry-run')
