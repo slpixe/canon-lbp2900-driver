@@ -22,6 +22,7 @@
 #include "std.h"
 #include "word.h"
 #include "capt-command.h"
+#include "runtime.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -50,32 +51,27 @@ static void print_status(void)
 	);
 }
 
-static void decode_status(const uint8_t *s, size_t size)
-{
-	status.status[0] = WORD(s[0], s[1]);
-
-	if (size <= 2)
-		return;
-
-	status.status[1] = WORD(s[8], s[9]);
-
-	if (size <= 10)
-		return;
-
-	status.status[2] = WORD(s[10], s[11]);
-	status.status[3] = WORD(s[12], s[13]);
-
-	status.page_decoding  = WORD(s[14], s[15]);
-	status.page_printing  = WORD(s[16], s[17]);
-	status.page_out       = WORD(s[18], s[19]);
-	status.page_completed = WORD(s[20], s[21]);
-	status.page_received  = WORD(s[34], s[35]);
-
-	status.status[4] = WORD(s[24], s[25]);
-
-	status.status[5] = WORD(s[30], s[31]);
-
-	status.status[6] = WORD(s[38], s[39]);
+bool capt_decode_status(struct capt_status_s *out, const uint8_t *s,
+                        size_t size, bool extended) {
+    if (!out || !s || (extended ? size < 40 : (size != 2 && size != 10)))
+        return false;
+    /* Basic records update only fields actually present. Extended records
+     * require the complete layout before any field is read. */
+    out->status[0] = WORD(s[0], s[1]);
+    if (size == 2) return true;
+    out->status[1] = WORD(s[8], s[9]);
+    if (!extended) return true;
+    out->status[2] = WORD(s[10], s[11]);
+    out->status[3] = WORD(s[12], s[13]);
+    out->page_decoding = WORD(s[14], s[15]);
+    out->page_printing = WORD(s[16], s[17]);
+    out->page_out = WORD(s[18], s[19]);
+    out->page_completed = WORD(s[20], s[21]);
+    out->page_received = WORD(s[34], s[35]);
+    out->status[4] = WORD(s[24], s[25]);
+    out->status[5] = WORD(s[30], s[31]);
+    out->status[6] = WORD(s[38], s[39]);
+    return true;
 }
 
 static void download_status(uint16_t cmd)
@@ -83,7 +79,8 @@ static void download_status(uint16_t cmd)
 	uint8_t buf[0x10000];
 	size_t size = sizeof(buf);
 	capt_sendrecv(cmd, NULL, 0, buf, &size);
-	decode_status(buf, size);
+	if (!capt_decode_status(&status, buf, size, cmd == CAPT_CHKXSTATUS))
+        capt_fail("truncated or unsupported printer status record");
 }
 
 void capt_init_status(void)
@@ -119,20 +116,16 @@ const struct capt_status_s *capt_get_xstatus(void)
 	return &status;
 }
 
-void capt_wait_ready(void)
-{
-	while (FLAG(capt_get_status(), CAPT_FL_BUSY))
-		usleep(CAPT_POLL_US);
+static void wait_ready(const struct capt_status_s *(*get_status)(void)) {
+    const double deadline = capt_now() + 30.0;
+    for (;;) {
+        capt_check_deadline(deadline, "printer remained busy");
+        const struct capt_status_s *s = get_status();
+        capt_check_deadline(deadline, "printer remained busy");
+        if (!FLAG(s, CAPT_FL_BUSY)) return;
+        capt_pause();
+    }
 }
-
-void capt_wait_xready(void)
-{
-	while (FLAG(capt_get_xstatus(), CAPT_FL_BUSY))
-		usleep(CAPT_POLL_US);
-}
-
-void capt_wait_xready_only(void)
-{
-       while (FLAG(capt_get_xstatus_only(), CAPT_FL_BUSY))
-               usleep(CAPT_POLL_US);
-}
+void capt_wait_ready(void) { wait_ready(capt_get_status); }
+void capt_wait_xready(void) { wait_ready(capt_get_xstatus); }
+void capt_wait_xready_only(void) { wait_ready(capt_get_xstatus_only); }

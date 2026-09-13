@@ -24,3 +24,12 @@ captdriver/tests/captdefilter
 
 # macOS
 .DS_Store
+
+# This fork never commits executable build products or signing material.
+/build/
+/dist/
+*.dSYM/
+*.p12
+*.p8
+*.key
+*.mobileprovision

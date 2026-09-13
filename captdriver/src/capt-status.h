@@ -68,6 +68,7 @@ static inline bool FLAG(const struct capt_status_s *status, enum capt_flags flag
 	return !! (status->status[flag >> 16] & (flag & 0xFFFF));
 }
 
+bool capt_decode_status(struct capt_status_s *out, const uint8_t *data, size_t size, bool extended);
 void capt_init_status(void);
 const struct capt_status_s *capt_get_status(void);
 const struct capt_status_s *capt_get_xstatus_only(void);

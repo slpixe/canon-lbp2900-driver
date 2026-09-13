@@ -30,7 +30,7 @@
 #define container_of(ptr, type, member) \
 	((type *) ((char *) ptr - offsetof(type, member)))
 
-#define debug true
+#define debug false
 
 /* Status-poll interval for the printer wait loops (microseconds). The stock
  * driver polled once per second (sleep(1)), which idles the print engine for up

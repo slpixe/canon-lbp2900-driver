@@ -34,7 +34,8 @@ struct state {
 
 	uint8_t *const output_buf;
 	const size_t output_bitsize;
-	unsigned bitpos;
+	size_t bitpos;
+    bool overflow;
 
 	unsigned line_size;
 
@@ -61,6 +62,7 @@ static void push_bits(struct state *state, uint32_t bits, unsigned count)
 		state->bitpos += cnt;
 		count -= cnt;
 	}
+    if (count) state->overflow = true;
 }
 
 static unsigned try_match(const struct state *state, unsigned diff)
@@ -206,6 +208,8 @@ size_t hiscoa_compress_band(void *buf, size_t size,
 	enum hiscoa_eob_type eob_type,
 	const struct hiscoa_params *params)
 {
+    if (!buf || !band || !params || !line_size || !nlines ||
+        line_size > 1024 || nlines > 256 || size > SIZE_MAX / 8) return 0;
 	struct state state = {
 		.xorval = 0x43,
 
@@ -239,10 +243,10 @@ size_t hiscoa_compress_band(void *buf, size_t size,
 
 	push_bits(&state, 0xFE, 8); /* end */
 	push_bits(&state, (unsigned) eob_type, 2);
-	//if (state.bitpos % 32)
+	if (state.bitpos % 32)
 		push_bits(&state, 0xFFFFFFFF, 32 - (state.bitpos % 32));
 
-	return state.bitpos / 8;
+	return state.overflow ? 0 : state.bitpos / 8;
 }
 
 

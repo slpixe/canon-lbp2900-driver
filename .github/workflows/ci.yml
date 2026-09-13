@@ -1,0 +1,53 @@
+name: Source checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Build driver and optional app
+        run: ./build.sh --all
+      - name: Offline sanitizer and parser tests
+        run: ./scripts/test.sh
+      - name: Installer policy (no installation)
+        run: python3 tests/installer-policy.py
+      - name: Shell syntax and static analysis
+        run: |
+          for script in ./*.sh scripts/*.sh menubar/*.sh; do bash -n "$script"; done
+          for source in captdriver/src/*.c; do
+            xcrun clang --analyze -D_DARWIN_C_SOURCE -std=gnu11 -Werror -Xanalyzer -analyzer-werror -o /dev/null "$source"
+          done
+      - name: Regenerate PPD
+        run: |
+          mkdir -p build/ppd
+          ppdc -d build/ppd captdriver/src/canon-lbp.drv
+          cmp ppd/CanonLBP-2900-3000.ppd build/ppd/CanonLBP-2900-3000.ppd
+      - name: Build development packages
+        run: |
+          ./scripts/package.sh --development
+          python3 tests/package-policy.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: development-packages-UNSIGNED
+          path: dist/
+          retention-days: 14
+  portable-c:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install system test dependencies
+        run: sudo apt-get update && sudo apt-get install -y libcups2-dev clang shellcheck
+      - name: Offline C sanitizer tests
+        run: ./scripts/test.sh
+      - name: Shell review
+        run: shellcheck ./*.sh scripts/*.sh menubar/*.sh

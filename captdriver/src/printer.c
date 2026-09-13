@@ -21,6 +21,7 @@
 
 #include "std.h"
 #include "capt-command.h"
+#include "runtime.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -67,7 +68,8 @@ static bool ieee_isspace(char c)
 static const struct printer_ops_s *find_ops(const char *model, size_t size)
 {
 	const struct printer_rec *r;
-	char mdl[size + 1];
+	if (size > 128) capt_fail("printer model name is too long");
+	char mdl[129];
 	if (! size) {
 		fprintf(stderr, "ERROR: CAPT: printer model name is empty\n");
 		return NULL;
@@ -121,11 +123,12 @@ const struct printer_ops_s *printer_detect(void)
 	const char *pos;
 	const char *end;
 	ieee = capt_identify();
+    if (!ieee || strlen(ieee) > 4096) capt_fail("invalid device identification");
 	pos = ieee;
 	for (; *pos && ieee_isspace(*pos); ++pos)
 		;
 	end = pos + strlen(pos);
-	for (; end != ieee && ieee_isspace(*(end - 1)); --end)
+	for (; end != pos && ieee_isspace(*(end - 1)); --end)
 		;
 
 	while (pos != end) {

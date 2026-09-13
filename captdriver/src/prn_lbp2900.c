@@ -19,6 +19,7 @@
  */
 
 #include "std.h"
+#include "runtime.h"
 #include "word.h"
 #include "capt-command.h"
 #include "capt-status.h"
@@ -35,15 +36,6 @@
 #include <unistd.h>
 
 uint16_t job;
-
-/* Safety nets: with capt_get_xstatus_only the page counters converge in well
- * under a second, so these bounds are almost never hit — they exist purely so a
- * freak page whose status never settles can't hang the whole queue forever.
- * At CAPT_POLL_US (100 ms) per poll: 200 -> ~20 s, 250 -> ~25 s. */
-enum {
-	CAPT_WAIT_POLLS_PAGE = 200,
-	CAPT_WAIT_POLLS_JOB  = 250,
-};
 
 struct printer_gpio_s {
 	const uint8_t (*init);
@@ -114,6 +106,7 @@ static void send_job_start(uint8_t fg, uint16_t page)
 	uint8_t nl = 0x00; /* document name lenght */
 	time_t rawtime = time(NULL);
 	const struct tm *tm = localtime(&rawtime);
+    if (!tm) capt_fail("cannot obtain printer job timestamp");
 	uint8_t buf[32 + 40 + ml + ul + nl];
 	uint8_t head[32] = {
 		0x00, 0x00, 0x00, 0x00, LO(page), HI(page), 0x00, 0x00,
@@ -134,19 +127,20 @@ static void lbp2900_job_prologue(struct printer_state_s *state)
 {
 	(void) state;
 	uint8_t buf[8];
-	size_t size;
+	size_t size = sizeof(buf);
 
 	/* Clear any stale printer-state-reason at the start of a job so a
 	 * previous "out of paper" doesn't linger in the macOS queue window. */
 	fprintf(stderr, "STATE: -media-empty\n");
 
 	capt_sendrecv(CAPT_IDENT, NULL, 0, NULL, 0);
-	sleep(1);
+	capt_delay(1000);
 	capt_init_status();
 	lbp2900_get_status(state->ops);
 
 	capt_sendrecv(CAPT_START_0, NULL, 0, NULL, 0);
 	capt_sendrecv(CAPT_JOB_BEGIN, magicbuf_0, ARRAY_SIZE(magicbuf_0), buf, &size);
+	if (size < 4) capt_fail("job-start reply is too short");
 	job=WORD(buf[2], buf[3]);
 
 	capt_sendrecv(CAPT_GPIO, lbp3010_gpio_init, ARRAY_SIZE(lbp3010_gpio_init), NULL, 0);
@@ -160,15 +154,16 @@ static void lbp3000_job_prologue(struct printer_state_s *state)
 {
 	(void) state;
 	uint8_t buf[8];
-	size_t size;
+	size_t size = sizeof(buf);
 
 	capt_sendrecv(CAPT_IDENT, NULL, 0, NULL, 0);
-	sleep(1);
+	capt_delay(1000);
 	capt_init_status();
 	lbp2900_get_status(state->ops);
 
 	capt_sendrecv(CAPT_START_0, NULL, 0, NULL, 0);
 	capt_sendrecv(CAPT_JOB_BEGIN, magicbuf_0, ARRAY_SIZE(magicbuf_0), buf, &size);
+	if (size < 4) capt_fail("job-start reply is too short");
 	job=WORD(buf[2], buf[3]);
 
 	/* LBP-3000 prints the very first printjob perfectly
@@ -188,15 +183,16 @@ static void lbp3010_job_prologue(struct printer_state_s *state)
 {
 	(void) state;
 	uint8_t buf[8];
-	size_t size;
+	size_t size = sizeof(buf);
 
 	capt_sendrecv(CAPT_IDENT, NULL, 0, NULL, 0);
-	sleep(1);
+	capt_delay(1000);
 	capt_init_status();
 	lbp2900_get_status(state->ops);
 
 	capt_sendrecv(CAPT_START_0, NULL, 0, NULL, 0);
 	capt_sendrecv(CAPT_JOB_BEGIN, magicbuf_0, ARRAY_SIZE(magicbuf_0), buf, &size);
+	if (size < 4) capt_fail("job-start reply is too short");
 	job=WORD(buf[2], buf[3]);
 
 	capt_sendrecv(CAPT_GPIO, lbp3010_gpio_init, ARRAY_SIZE(lbp3010_gpio_init), NULL, 0);
@@ -210,15 +206,16 @@ static void lbp6000_job_prologue(struct printer_state_s *state)
 {
 	(void) state;
 	uint8_t buf[8];
-	size_t size;
+	size_t size = sizeof(buf);
 
 	capt_sendrecv(CAPT_IDENT, NULL, 0, NULL, 0);
-	sleep(1);
+	capt_delay(1000);
 	capt_init_status();
 	lbp2900_get_status(state->ops);
 
 	capt_sendrecv(CAPT_START_0, NULL, 0, NULL, 0);
 	capt_sendrecv(CAPT_JOB_BEGIN, magicbuf_0, ARRAY_SIZE(magicbuf_0), buf, &size);
+	if (size < 4) capt_fail("job-start reply is too short");
 	job=WORD(buf[2], buf[3]);
 
 	capt_sendrecv(CAPT_GPIO, lbp3010_gpio_init, ARRAY_SIZE(lbp3010_gpio_init), NULL, 0);
@@ -323,15 +320,11 @@ static bool lbp2900_page_prologue(struct printer_state_s *state, const struct pa
 		lbp2900_wait_ready(state->ops);
 	}
 
-	for (unsigned polls = 0; ; ++polls) {
+	for (double deadline = capt_now() + 30.0; ; ) {
+        capt_check_deadline(deadline, "printer status did not settle; job stopped");
 		if (! FLAG(lbp2900_get_status(state->ops), CAPT_FL_BUFFERFULL))
 			break;
-		if (polls >= CAPT_WAIT_POLLS_PAGE) {
-			fprintf(stderr, "WARNING: CAPT: buffer stayed full ~%us; proceeding\n",
-					CAPT_WAIT_POLLS_PAGE / 10);
-			break;
-		}
-		usleep(CAPT_POLL_US);
+		capt_pause();
 	}
 
 	capt_multi_begin(CAPT_SET_PARMS);
@@ -354,16 +347,12 @@ static bool lbp2900_page_epilogue(struct printer_state_s *state, const struct pa
 
 	/* waiting until the page is received (check first, then poll finely so
 	 * a ready printer isn't stalled a whole second before the next page) */
-	for (unsigned polls = 0; ; ++polls) {
+	for (double deadline = capt_now() + 30.0; ; ) {
+        capt_check_deadline(deadline, "printer status did not settle; job stopped");
 	  status = lbp2900_get_status(state->ops);
 	  if (status->page_received == status->page_decoding)
 	    break;
-	  if (polls >= CAPT_WAIT_POLLS_PAGE) {
-	    fprintf(stderr, "WARNING: CAPT: page-received didn't settle ~%us; proceeding\n",
-	            CAPT_WAIT_POLLS_PAGE / 10);
-	    break;
-	  }
-	  usleep(CAPT_POLL_US);
+	  capt_pause();
 	}
 	send_job_start(2, status->page_decoding);
 	lbp2900_wait_ready(state->ops);
@@ -375,8 +364,10 @@ static bool lbp2900_page_epilogue(struct printer_state_s *state, const struct pa
 	send_job_start(6, status->page_decoding);
 
 	bool blinking = false;
-	for (unsigned polls = 0; ; ++polls) {
+	for (double deadline = capt_now() + 30.0; ; ) {
+        capt_check_deadline(deadline, "printer status did not settle; job stopped");
 		const struct capt_status_s *status = lbp2900_get_status(state->ops);
+        capt_check_deadline(deadline, "page completion timed out");
 		/* Interesting. Using page_printing here results in shifted print */
 		if (status->page_out == status->page_decoding) {
 			/* Page ejected OK -> clear the out-of-paper reason. */
@@ -393,16 +384,13 @@ static bool lbp2900_page_epilogue(struct printer_state_s *state, const struct pa
 						ARRAY_SIZE(lbp2900_gpio_blink), NULL, 0);
 				blinking = true;
 			}
-			if (FLAG(status, CAPT_FL_PRINTING) || FLAG(status, CAPT_FL_PROCESSING1))
-				continue;
+			if (FLAG(status, CAPT_FL_PRINTING) || FLAG(status, CAPT_FL_PROCESSING1)) {
+                capt_pause();
+                continue;
+            }
 			return false;
 		}
-		if (polls >= CAPT_WAIT_POLLS_PAGE) {
-			fprintf(stderr, "WARNING: CAPT: page-out didn't settle ~%us; continuing\n",
-					CAPT_WAIT_POLLS_PAGE / 10);
-			return true;
-		}
-		usleep(CAPT_POLL_US);
+		capt_pause();
 	}
 }
 
@@ -411,19 +399,14 @@ static void lbp2900_job_epilogue(struct printer_state_s *state)
 	uint8_t jbuf[2] = { LO(job), HI(job) };
 	const struct capt_status_s *status = NULL;
 
-	for (unsigned polls = 0; ; ++polls) {
+	for (double deadline = capt_now() + 30.0; ; ) {
+        capt_check_deadline(deadline, "printer status did not settle; job stopped");
 		status = lbp2900_get_status(state->ops);
 		if (status->page_completed == status->page_decoding) {
 			send_job_start(4, status->page_completed);
 			break;
 		}
-		if (polls >= CAPT_WAIT_POLLS_JOB) {
-			fprintf(stderr, "WARNING: CAPT: page-completed didn't settle ~%us; ending job\n",
-					CAPT_WAIT_POLLS_JOB / 10);
-			send_job_start(4, status->page_decoding);
-			break;
-		}
-		usleep(CAPT_POLL_US);
+		capt_pause();
 	}
 	capt_sendrecv(CAPT_JOB_END, jbuf, 2, NULL, 0);
 }
@@ -473,7 +456,8 @@ static void lbp2900_wait_user(struct printer_state_s *state)
 	capt_sendrecv(CAPT_GPIO, lbp2900_gpio_blink, ARRAY_SIZE(lbp2900_gpio_blink), NULL, 0);
 	lbp2900_wait_ready(state->ops);
 
-	while (1) {
+	for (double deadline = capt_now() + 300.0; ; ) {
+        capt_check_deadline(deadline, "waiting for user timed out; job stopped");
 		const struct capt_status_s *status = lbp2900_get_status(state->ops);
 		if (FLAG(status, CAPT_FL_BUTTON_ON)) {
 			fprintf(stderr, "DEBUG: CAPT: button activated\n");
@@ -482,7 +466,7 @@ static void lbp2900_wait_user(struct printer_state_s *state)
 			fprintf(stderr, "DEBUG: CAPT: button pressed\n");
 			break;
 		}
-		sleep(1);
+		capt_pause();
 	}
 
 	capt_sendrecv(CAPT_GPIO, lbp2900_gpio_init, ARRAY_SIZE(lbp2900_gpio_init), NULL, 0);
@@ -496,7 +480,8 @@ static void lbp3010_wait_user(struct printer_state_s *state)
 	capt_sendrecv(CAPT_GPIO, lbp3010_gpio_blink, ARRAY_SIZE(lbp3010_gpio_blink), NULL, 0);
 	lbp2900_wait_ready(state->ops);
 
-	while (1) {
+	for (double deadline = capt_now() + 300.0; ; ) {
+        capt_check_deadline(deadline, "waiting for user timed out; job stopped");
 		const struct capt_status_s *status = lbp2900_get_status(state->ops);
 		if (FLAG(status, CAPT_FL_BUTTON_ON)) {
 			fprintf(stderr, "DEBUG: CAPT: button activated\n");
@@ -505,7 +490,7 @@ static void lbp3010_wait_user(struct printer_state_s *state)
 			fprintf(stderr, "DEBUG: CAPT: (virtual) button pressed\n");
 			break;
 		}
-		sleep(1);
+		capt_pause();
 	}
 
 	capt_sendrecv(CAPT_GPIO, lbp3010_gpio_init, ARRAY_SIZE(lbp3010_gpio_init), NULL, 0);

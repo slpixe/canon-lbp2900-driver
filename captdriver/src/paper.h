@@ -41,4 +41,5 @@ struct page_dims_s {
 	unsigned num_lines;
 };
 
+bool page_header_valid(const struct cups_page_header2_s *header);
 void page_set_dims(struct page_dims_s *dims, const struct cups_page_header2_s *header);

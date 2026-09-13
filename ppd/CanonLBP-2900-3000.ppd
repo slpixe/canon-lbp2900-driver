@@ -23,7 +23,7 @@
 *cupsVersion: 2.3
 *cupsModelNumber: 0
 *cupsManualCopies: False
-*cupsFilter: "application/vnd.cups-raster 1 rastertocapt"
+*cupsFilter: "application/vnd.cups-raster 1 rastertocapt-lbp2900"
 *cupsLanguages: "en"
 *OpenUI *PageSize/Media Size: PickOne
 *OrderDependency: 10 AnySetup *PageSize
@@ -356,4 +356,4 @@
 *Font Times-Roman: Standard "(1.05)" Standard ROM
 *Font ZapfChancery-MediumItalic: Standard "(1.05)" Standard ROM
 *Font ZapfDingbats: Special "(001.005)" Special ROM
-*% End of CNLB2K9.ppd, 24900 bytes.
+*% End of CNLB2K9.ppd, 24908 bytes.

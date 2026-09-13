@@ -20,11 +20,30 @@
 #include "paper.h"
 #include <cups/raster.h>
 #include <stdio.h>
+#include <string.h>
+#include "runtime.h"
+
+bool page_header_valid(const struct cups_page_header2_s *h) {
+    return h && h->cupsWidth > 0 && h->cupsWidth <= 8192 &&
+        h->cupsHeight > 0 && h->cupsHeight <= 12000 &&
+        h->PageSize[0] > 0 && h->PageSize[0] <= 1024 &&
+        h->PageSize[1] > 0 && h->PageSize[1] <= 1440 &&
+        h->cupsRowCount > 0 && h->cupsRowCount <= 256 &&
+        h->cupsBitsPerPixel == 1 && h->cupsBitsPerColor == 1 &&
+        h->cupsColorOrder == CUPS_ORDER_CHUNKED && h->cupsColorSpace == CUPS_CSPACE_K &&
+        h->cupsNumColors == 1 && h->cupsBytesPerLine == (h->cupsWidth + 7) / 8 &&
+        h->HWResolution[0] == 600 && h->HWResolution[1] == 600 &&
+        h->cupsMediaType <= 6 && h->cupsInteger[0] <= 1 &&
+        h->cupsInteger[1] <= 63 && h->cupsInteger[2] <= 1 &&
+        h->Margins[0] <= 65535 && h->Margins[1] <= 65535;
+}
 
 void page_set_dims(struct page_dims_s *dims, const struct cups_page_header2_s *header)
 {
+	if (!page_header_valid(header)) capt_fail("unsupported raster dimensions or format");
 	dims->media_type = header->cupsMediaType;
-	strncpy(dims->media_size, header->MediaType, 64);
+	memcpy(dims->media_size, header->MediaType, sizeof(dims->media_size) - 1);
+    dims->media_size[sizeof(dims->media_size) - 1] = '\0';
 	dims->paper_width  = header->cupsWidth;  //header->PageSize[0] * header->HWResolution[0] / 72;
 	dims->paper_height = header->cupsHeight; //header->PageSize[1] * header->HWResolution[1] / 72;
 	dims->toner_save = header->cupsInteger[0];

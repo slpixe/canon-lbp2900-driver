@@ -1,0 +1,43 @@
+name: Draft preview release
+on:
+  push:
+    tags: ['v2.*']
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: macos-15
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate version and main ancestry
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          test "$RELEASE_TAG" = "v$(cat VERSION)"
+          git merge-base --is-ancestor HEAD origin/main
+          test -z "$(git status --porcelain)"
+      - name: Build and test reviewed source
+        run: |
+          ./build.sh --all
+          ./scripts/test.sh
+          python3 tests/installer-policy.py
+          ./scripts/package.sh --development
+          python3 tests/package-policy.py
+      - uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45 # v2
+        with:
+          subject-path: dist/*
+      - name: Create draft only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" dist/* --verify-tag --draft --prerelease \
+            --title "$RELEASE_TAG — development preview, hardware testing pending" \
+            --notes-file docs/PREVIEW-NOTES.md

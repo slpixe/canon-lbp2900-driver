@@ -11,10 +11,10 @@ rastertocapt_SOURCES = rastertocapt.c \
     hiscoa-common.h hiscoa-common.c \
     hiscoa-compress.h hiscoa-compress.c
 
-rastertocapt_SOURCES += prn_lbp2900.c
+rastertocapt_SOURCES += prn_lbp2900.c runtime.c runtime.h
 
 rastertocapt_LDADD = $(CUPS_LIBS)
 
 nodist_data_DATA = Makefile.in
 
-AM_CFLAGS = -std=c99 -Wall -Wextra -pedantic $(CUPS_CFLAGS)
+AM_CFLAGS = -std=c11 -Wall -Wextra -pedantic $(CUPS_CFLAGS)

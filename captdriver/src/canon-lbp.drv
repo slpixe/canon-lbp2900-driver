@@ -14,7 +14,7 @@
 
 Copyright "(C)2020 Moses Chong"
 ColorModel "Gray/Grayscale" k chunky 2
-Filter application/vnd.cups-raster 1 rastertocapt
+Filter application/vnd.cups-raster 1 rastertocapt-lbp2900
 *Manufacturer "Canon Inc"
 Version 0.1.4
 {
