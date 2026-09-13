@@ -37,7 +37,8 @@ size_t ops_compress_band_hiscoa(struct printer_state_s *state,
 					0, &hiscoa_default_params);
 }
 
-void ops_send_band_hiscoa(struct printer_state_s *state, const void *data, size_t size)
+static void send_band_hiscoa(struct printer_state_s *state, const void *data, size_t size,
+                              void (*wait_ready)(void))
 {
 	const uint8_t *pdata = (const uint8_t *) data;
 	while (size) {
@@ -46,9 +47,22 @@ void ops_send_band_hiscoa(struct printer_state_s *state, const void *data, size_
 			send = size;
 		state->isend += 1;
 		if (state->isend % 16 == 0)
-			capt_wait_ready();
+			wait_ready();
 		capt_send(CAPT_PRINT_DATA, pdata, send);
 		pdata += send;
 		size -= send;
 	}
+}
+
+void ops_send_band_hiscoa(struct printer_state_s *state, const void *data, size_t size)
+{
+    send_band_hiscoa(state, data, size, capt_wait_ready);
+}
+
+/* LBP2900 must use the same extended-status policy during transfer as during
+ * job/page setup. Hardware returns a basic record variant not decoded here;
+ * do not relax length checks or read absent fields to accommodate it. */
+void ops_send_band_hiscoa_xstatus(struct printer_state_s *state, const void *data, size_t size)
+{
+    send_band_hiscoa(state, data, size, capt_wait_xready_only);
 }
