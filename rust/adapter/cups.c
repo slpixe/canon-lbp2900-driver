@@ -91,7 +91,7 @@ int lbp_write(const uint8_t *data, size_t size) {
         if (n < 0 && (errno == EINTR || errno == EAGAIN)) continue;
         if (n <= 0 || (size_t)n > wanted) return -1;
         offset += (size_t)n;
-        char scratch[128]; int length = sizeof(scratch);
+        char scratch[128] = {0}; int length = sizeof(scratch);
         cups_sc_status_t status = cupsSideChannelDoRequest(CUPS_SC_CMD_DRAIN_OUTPUT,scratch,&length,1.0);
         if (length < 0 || length > (int)sizeof(scratch)) return -1;
         /* Match the Apple USB backend timeout tolerance in the C driver. */

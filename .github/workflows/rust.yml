@@ -35,7 +35,10 @@ jobs:
           ./scripts/build-rust.sh
           mkdir -p build/rust/ppd-root/usr/libexec/cups/filter
           install -m 0755 build/rust/rastertocapt-lbp2900-rust build/rust/ppd-root/usr/libexec/cups/filter/
-          cupstestppd -R "$PWD/build/rust/ppd-root" -q build/rust/CanonLBP2900-Rust-Experimental.ppd
+          # CUPS requires root ownership even for an alternate test root.
+          # Change only this staged copy in the ephemeral runner workspace.
+          sudo chown root:wheel build/rust/ppd-root/usr/libexec/cups/filter/rastertocapt-lbp2900-rust
+          /usr/bin/cupstestppd -R "$PWD/build/rust/ppd-root" -v build/rust/CanonLBP2900-Rust-Experimental.ppd
           file build/rust/rastertocapt-lbp2900-rust
           otool -L build/rust/rastertocapt-lbp2900-rust
       # No artifact upload or release: experimental executables are not distributed.

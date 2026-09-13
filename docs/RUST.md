@@ -70,6 +70,9 @@ encoder comparison and labels it ignored. The full script builds the oracle, set
 The full suite needs Python 3, Clang and system CUPS headers/libraries
 (included in Apple's SDK; `clang` and `libcups2-dev` on Ubuntu). It uses a local synthetic
 backend, not the CUPS service, USB or a network connection, and needs no sudo.
+The separate macOS CI PPD check makes only a staged copy root-owned inside its
+ephemeral workspace, because CUPS validates installed-filter ownership even with
+an alternate test root. It does not install the filter in the runner’s system.
 
 ## Optional manual hardware experiment
 

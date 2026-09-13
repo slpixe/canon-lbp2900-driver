@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#![deny(unsafe_code)]
+#[allow(unsafe_code)] // The reviewed system boundary; the rest of the executable stays safe.
 mod cups;
 use lbp2900_rust::{
     Error, Result,
