@@ -49,7 +49,7 @@ check_directory() {
 check_target() {
   [ ! -L "$1" ] || fail "Symlink destination: $1"
   if [ -e "$1" ]; then
-    [ -f "$1" ] && [ "$(stat -f %u "$1")" = 0 ] || fail "Unexpected destination: $1"
+    if [ ! -f "$1" ] || [ "$(stat -f %u "$1")" != 0 ]; then fail "Unexpected destination: $1"; fi
   fi
 }
 if ! $dry; then [ "$(id -u)" -eq 0 ] || fail 'This helper needs administrator privileges.'; fi
@@ -67,7 +67,7 @@ if [ "$verb" = remove ]; then
 fi
 if ! $dry; then
   for input in "$source_filter" "$source_ppd"; do
-    [ -f "$input" ] && [ ! -L "$input" ] || fail "Not a regular source file: $input"
+    if [ ! -f "$input" ] || [ -L "$input" ]; then fail "Not a regular source file: $input"; fi
     owner="$(stat -f %u "$input")"
     [ "$owner" = "${SUDO_UID:-0}" ] || [ "$owner" = 0 ] || fail 'Source belongs to another user.'
   done

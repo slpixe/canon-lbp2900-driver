@@ -49,11 +49,16 @@ static void push_bits(struct state *state, uint32_t bits, unsigned count)
 {
 	while (count && state->bitpos < state->output_bitsize) {
 		unsigned word = state->bitpos / 8;
-		unsigned spc = 8 - (state->bitpos % 8);
+		unsigned spc = 8u - (unsigned)(state->bitpos & 7u);
 		unsigned cnt = (count > spc) ? spc : count;
+		/* Explicit bounds also keep older analyzers aware of shift limits. */
+        if (!cnt || cnt > 8 || cnt > spc || cnt > count || count > 32) {
+            state->overflow = true;
+            return;
+        }
 		uint8_t mask = (0xFFu >> (8 - cnt)) << (spc - cnt);
 		uint32_t val = (bits >> (count - cnt)) << (spc - cnt);
-		uint8_t x = state->output_buf[word];
+		uint8_t x = (state->bitpos & 7u) ? state->output_buf[word] : state->xorval;
 		x ^= state->xorval;
 		x &= ~mask;
 		x |= mask & val;

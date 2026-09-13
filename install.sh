@@ -16,7 +16,7 @@ HELP
 }
 [ "$#" -gt 0 ] || { usage; exit 0; }
 [ "$(id -u)" -ne 0 ] || { echo 'Run without sudo; only driver installation requests it.' >&2; exit 1; }
-[ "$(uname -s)" = Darwin ] && [ "$(uname -m)" = arm64 ] || { echo "Installation requires Apple Silicon macOS." >&2; exit 1; }
+if [ "$(uname -s)" != Darwin ] || [ "$(uname -m)" != arm64 ]; then echo "Installation requires Apple Silicon macOS." >&2; exit 1; fi
 version="$(sw_vers -productVersion)"
 [ "${version%%.*}" -ge 15 ] || { echo "Installation requires macOS 15 or later." >&2; exit 1; }
 component='' uri='' dry=false
@@ -45,7 +45,7 @@ else
   mkdir -p "$target"
   [ "$(stat -f %u "$target")" = "$(id -u)" ] || exit 1
   destination="$target/LBP2900Progress.app"
-  [ ! -e "$destination" ] && [ ! -L "$destination" ] || { echo 'An app already exists there. Quit and move it to Trash before installing a replacement.' >&2; exit 1; }
+  if [ -e "$destination" ] || [ -L "$destination" ]; then echo 'An app already exists there. Quit and move it to Trash before installing a replacement.' >&2; exit 1; fi
   /usr/bin/ditto build/LBP2900Progress.app "$destination"
   echo "Installed $destination. Open it when needed; login startup is optional in its menu."
 fi
