@@ -505,7 +505,7 @@ static struct lbp2900_ops_s lbp2900_ops = {
 		.page_prologue = lbp2900_page_prologue,
 		.page_epilogue = lbp2900_page_epilogue,
 		.compress_band = ops_compress_band_hiscoa,
-		.send_band = ops_send_band_hiscoa,
+		.send_band = ops_send_band_hiscoa_xstatus,
 		.cancel_cleanup = lbp2900_cancel_cleanup,
 		.wait_user = lbp2900_wait_user,
 	},
