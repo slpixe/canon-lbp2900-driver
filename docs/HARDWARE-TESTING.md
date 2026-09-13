@@ -24,7 +24,7 @@ No more dedicated pages are required now. Install the C version, optionally add 
 - [#5 Sequoia installation, updates and removal](https://github.com/slpixe/canon-lbp2900-driver/issues/5)
 - [#6 Optional menu app, progress, login startup and Quit](https://github.com/slpixe/canon-lbp2900-driver/issues/6)
 
-Maintainer follow-ups: [#7 inherited reply-length ambiguity](https://github.com/slpixe/canon-lbp2900-driver/issues/7) and [#8 signed releases / Rust adoption review](https://github.com/slpixe/canon-lbp2900-driver/issues/8). These do not undo the proven transfer fix or require holding it out of `main`.
+Maintainer follow-ups: [#7 deterministic reply-length fix](https://github.com/slpixe/canon-lbp2900-driver/issues/7) and [#8 signed releases / Rust adoption review](https://github.com/slpixe/canon-lbp2900-driver/issues/8). These do not undo the proven transfer fix or require holding it out of `main`.
 
 Suggested report:
 
@@ -39,3 +39,11 @@ Pass, fail, or not tried:
 ```
 
 Do not post private document titles/content, usernames, printer serial numbers or raw unredacted logs. Do not deliberately cause a jam. The driver-only path needs no menu app, login item or new background service. Hardware success is not a security certification; see SECURITY.md and the release-verification instructions.
+
+## Setup and menu follow-up — 2026-09-13
+
+The owner reported the new graphical setup worked. The installed C filter was byte-compared with the local build containing the deterministic reply-length fix, and strict signature verification passed. This confirms installation, not a further physical print.
+
+The menu's exact IPP query/parser passed idle, held-job (zero completed sheets), missing-queue and return-to-idle tests for both C and Rust queues. Both test jobs were cancelled without release. The UI now supports explicit C/Rust selection; visual menu switching and physical progress remain separate checks in issue #6.
+
+The issue #7 regression failed against both old receivers using the same published LBP2900 device fixture and passed after both fixes. See [protocol policy and compatibility limits](PROTOCOL-LENGTHS.md). The prior single-page print results above must not be read as a hardware retest of the new framing policy.

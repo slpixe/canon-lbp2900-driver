@@ -4,8 +4,8 @@ import subprocess
 from pathlib import Path
 os.environ['ASAN_OPTIONS'] = 'detect_leaks=0:abort_on_error=1'
 os.environ['UBSAN_OPTIONS'] = 'halt_on_error=1:print_stacktrace=1'
-positive = ['fragmented', 'max', 'bcd', 'identify', 'status']
-negative = ['short', 'wrong-command', 'bad-length', 'small-buffer', 'missing-capacity', 'bad-id', 'cancel', 'deadline']
+positive = ['fragmented', 'max', 'fragmentation', 'identify', 'status']
+negative = ['bcd', 'short', 'wrong-command', 'bad-length', 'small-buffer', 'missing-capacity', 'bad-id', 'cancel', 'deadline']
 for case in positive + negative:
     result = subprocess.run(['build/tests/protocol', case], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=10)
     assert result.returncode == (0 if case in positive else 1), (case, result.returncode, result.stderr.decode())

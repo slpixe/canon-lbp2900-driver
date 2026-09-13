@@ -24,6 +24,8 @@ suffix=UNSIGNED
 if ! $development; then
   suffix=SIGNED
   codesign --force --options runtime --timestamp --sign "$DEVELOPER_ID_APPLICATION" "$stage/root/usr/libexec/cups/filter/rastertocapt-lbp2900"
+  # Sign the embedded setup payload before sealing the outer app.
+  codesign --force --options runtime --timestamp --sign "$DEVELOPER_ID_APPLICATION" build/LBP2900Progress.app/Contents/Resources/DriverPayload/rastertocapt-lbp2900
   codesign --force --options runtime --timestamp --sign "$DEVELOPER_ID_APPLICATION" build/LBP2900Progress.app
 
 fi

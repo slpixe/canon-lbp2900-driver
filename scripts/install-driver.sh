@@ -4,6 +4,8 @@
 set -euo pipefail
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin
 umask 022
+rust=false
+if [ "${1:-}" = --rust ]; then rust=true; shift; fi
 dry=false
 if [ "${1:-}" = --dry-run ]; then dry=true; shift; fi
 fail() { echo "Installation stopped: $*" >&2; exit 1; }
@@ -11,6 +13,13 @@ run() { if $dry; then printf 'Would run:'; printf ' %q' "$@"; printf '\n'; else 
 filter=/usr/libexec/cups/filter/rastertocapt-lbp2900
 ppd=/Library/Printers/PPDs/Contents/Resources/CanonLBP2900-Slpixe.ppd
 queue=Canon_LBP2900_Slpixe
+description='Canon LBP2900 (community driver)'
+if $rust; then
+  filter=/usr/libexec/cups/filter/rastertocapt-lbp2900-rust
+  ppd=/Library/Printers/PPDs/Contents/Resources/CanonLBP2900-Rust-Experimental.ppd
+  queue=Canon_LBP2900_Rust_Experiment
+  description='Canon LBP2900 (Rust experiment)'
+fi
 verb="${1:-}"
 [ "$verb" = install ] || [ "$verb" = remove ] || fail 'Unknown operation.'
 shift
@@ -25,7 +34,7 @@ if [ "$verb" = install ]; then
       found=false
       while read -r kind address rest; do
         if [ "$kind" = direct ] && [ "$address" = "$uri" ]; then found=true; fi
-      done < <(/usr/sbin/lpinfo -v)
+      done < <(/usr/sbin/lpinfo --include-schemes usb --timeout 5 -v)
       $found || fail 'That exact printer is not connected. Install without --uri, or reconnect it.'
     fi
   fi
@@ -53,13 +62,23 @@ check_target() {
   fi
 }
 if ! $dry; then [ "$(id -u)" -eq 0 ] || fail 'This helper needs administrator privileges.'; fi
+# Refuse replacement/removal if either variant reports outstanding jobs.
+# Inspect existence first; do not mistake a failed job query for an empty queue.
+if ! $dry; then
+  for q in Canon_LBP2900_Slpixe Canon_LBP2900_Rust_Experiment; do
+    if /usr/bin/lpstat -p "$q" >/dev/null 2>&1; then
+      jobs="$(/usr/bin/lpstat -o "$q")" || fail 'Could not check queued jobs.'
+      [ -z "$jobs" ] || fail 'Finish or cancel jobs in both Canon queues before installation or removal.'
+    fi
+  done
+fi
 check_directory "${filter%/*}"
 check_directory "${ppd%/*}"
 check_target "$filter"; check_target "$ppd"
 if [ "$verb" = remove ]; then
   if $dry || /usr/bin/lpstat -p "$queue" >/dev/null 2>&1; then run /usr/sbin/lpadmin -x "$queue"; fi
   run /bin/rm -f "$filter" "$ppd"
-  if ! $dry && /usr/sbin/pkgutil --pkg-info com.slpixe.canon-lbp2900.driver >/dev/null 2>&1; then
+  if ! $rust && ! $dry && /usr/sbin/pkgutil --pkg-info com.slpixe.canon-lbp2900.driver >/dev/null 2>&1; then
     /usr/sbin/pkgutil --forget com.slpixe.canon-lbp2900.driver
   fi
   if $dry; then echo 'Dry run complete. Nothing removed.'; else echo 'Driver removal complete. The optional menu app is separate.'; fi
@@ -86,6 +105,6 @@ atomic_install "$source_filter" "$filter" 0755
 atomic_install "$source_ppd" "$ppd" 0644
 if [ -n "$uri" ]; then
   run /usr/sbin/lpadmin -p "$queue" -v "$uri" -P "$ppd" -E \
-    -D 'Canon LBP2900 (community driver)' -o printer-is-shared=false -o printer-error-policy=stop-printer
+    -D "$description" -o printer-is-shared=false -o printer-error-policy=stop-printer
 fi
 if $dry; then echo 'Dry run complete. Nothing installed.'; else echo 'Driver installed. No daemon or login application was added.'; fi
