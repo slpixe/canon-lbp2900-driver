@@ -13,9 +13,10 @@ cd rust
 # toolchain yourself first; cd rust makes rustup honor rust-toolchain.toml.
 [ "$(rustc --version | awk '{print $2}')" = 1.98.1 ] || { echo 'Rust 1.98.1 is required.' >&2; exit 1; }
 export MACOSX_DEPLOYMENT_TARGET=15.0
-cargo build --release --locked --offline --features cups --bin rastertocapt-lbp2900-rust
+cargo build --release --locked --offline --target aarch64-apple-darwin \
+  --target-dir "$PWD/target" --features cups --bin rastertocapt-lbp2900-rust
 mkdir -p ../build/rust
-cp target/release/rastertocapt-lbp2900-rust ../build/rust/
+cp target/aarch64-apple-darwin/release/rastertocapt-lbp2900-rust ../build/rust/
 /usr/bin/codesign --verify --strict ../build/rust/rastertocapt-lbp2900-rust
 /usr/bin/sed \
   -e 's/rastertocapt-lbp2900"/rastertocapt-lbp2900-rust"/' \

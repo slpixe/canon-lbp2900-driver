@@ -5,13 +5,10 @@ use std::{
     process::{Command, Stdio},
 };
 #[test]
+#[ignore = "requires the C oracle; run ./scripts/test-rust.sh"]
 fn matches_c_encoder_byte_for_byte() {
-    let Some(oracle) = std::env::var_os("LBP_C_ORACLE") else {
-        eprintln!(
-            "C differential test requires ./scripts/test-rust.sh; skipped in standalone cargo test"
-        );
-        return;
-    };
+    let oracle =
+        std::env::var_os("LBP_C_ORACLE").expect("Run ./scripts/test-rust.sh to build the C oracle");
     let mut seed = 7u32;
     for width in [1, 8, 17, 592, 1024] {
         for rows in [1, 2, 70, 256] {

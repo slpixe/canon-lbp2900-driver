@@ -65,9 +65,10 @@ cargo clippy --all-targets --locked --offline -- -D warnings
 ```
 
 Use `./scripts/test-rust.sh` for the full suite: a plain `cargo test` skips the C
-encoder comparison unless `LBP_C_ORACLE` points to the separately compiled oracle.
-The full suite needs Python 3, a C compiler and system CUPS headers/libraries
-(included in Apple's SDK; `libcups2-dev` on Ubuntu). It uses a local synthetic
+encoder comparison and labels it ignored. The full script builds the oracle, sets
+`LBP_C_ORACLE`, and explicitly runs that comparison.
+The full suite needs Python 3, Clang and system CUPS headers/libraries
+(included in Apple's SDK; `clang` and `libcups2-dev` on Ubuntu). It uses a local synthetic
 backend, not the CUPS service, USB or a network connection, and needs no sudo.
 
 ## Optional manual hardware experiment

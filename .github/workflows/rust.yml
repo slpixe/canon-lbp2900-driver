@@ -2,7 +2,7 @@ name: Experimental Rust checks
 on:
   pull_request:
   push:
-    branches: [experiment/rust-driver]
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,7 +20,7 @@ jobs:
           persist-credentials: false
       - name: Install Linux CUPS headers
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libcups2-dev
+        run: sudo apt-get update && sudo apt-get install -y libcups2-dev clang
       - name: Install pinned official Rust toolchain
         run: rustup toolchain install 1.98.1 --profile minimal --component clippy --component rustfmt
       - name: Core, C differential and real CUPS adapter checks (offline)
@@ -33,7 +33,9 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           ./scripts/build-rust.sh
-          cupstestppd -q build/rust/CanonLBP2900-Rust-Experimental.ppd
+          mkdir -p build/rust/ppd-root/usr/libexec/cups/filter
+          install -m 0755 build/rust/rastertocapt-lbp2900-rust build/rust/ppd-root/usr/libexec/cups/filter/
+          cupstestppd -R "$PWD/build/rust/ppd-root" -q build/rust/CanonLBP2900-Rust-Experimental.ppd
           file build/rust/rastertocapt-lbp2900-rust
           otool -L build/rust/rastertocapt-lbp2900-rust
       # No artifact upload or release: experimental executables are not distributed.
