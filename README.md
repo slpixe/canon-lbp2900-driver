@@ -1,5 +1,7 @@
 # Canon LBP2900 driver for Apple Silicon
 
+> **Experimental Rust branch:** C remains the default. See [Rust build, comparison tests and validation gates](docs/RUST.md) for the separately named LBP2900 Rust filter, with a confirmed single-page hardware result and broader validation pending.
+
 A source-first, security-hardened fork of the community CAPT driver for Canon LBP2900 / LBP2900B printers. Build it yourself, install only the driver, and add the menu-bar progress app only if you want it.
 
 **Source-build preview: single-page printing confirmed in both C and Rust.** On 2026-09-13, an LBP2900 printed one A4, single-sided, 600 dpi page with each implementation on an Apple M1 Pro running macOS 26.6.2. The owner confirmed good C text/border and visually equivalent Rust output. Broader everyday-use and recovery results are tracked in [validation issues](docs/HARDWARE-TESTING.md). This is unofficial software, not endorsed or certified by Canon or Apple. Do not treat the word “hardened” as a guarantee of safety.
