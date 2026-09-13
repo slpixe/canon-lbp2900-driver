@@ -5,8 +5,9 @@ filter printed one A4, single-sided, 600 dpi page on an LBP2900 / M1 Pro / macOS
 26.6.2 on 2026-09-13 (source `3ae59529d1b872b33790995b5c70b0b5176707b7`). The owner
 confirmed output visually equivalent to C. Broader real-world validation remains open. Neither implementation is certified or guaranteed safe.
 
-The branch `experiment/rust-driver` keeps C as the default and leaves the installer,
-packages, release workflow and optional Swift menu app unchanged. It also includes
+The branch `experiment/rust-driver` keeps C as the default. The shared Swift app
+can monitor either queue and optionally install the separately built Rust payload.
+Packages and the release workflow continue to distribute C only. It also includes
 the small C transfer-polling fix merged into `main` in [PR #2](https://github.com/slpixe/canon-lbp2900-driver/pull/2):
 a hardware test found that basic-status polling at the 16th data chunk stopped the
 job, so both LBP2900 implementations now keep using extended status throughout. The Rust binary
@@ -60,7 +61,7 @@ Use the explicit Rust build above and separate installation below.
 Builds use `--locked --offline` and do not download dependencies. Toolchain
 installation above is a separate network operation. A compiled filter does not
 require Rust on the recipient's computer. Local signatures are ad hoc, not
-Developer ID signatures or notarization. There is no Rust installer/release yet.
+Developer ID signatures or notarization. There is an explicit source-built Rust setup option below; no compiled Rust release is published.
 
 Core-only tests, which do not need CUPS headers, can also run on Linux:
 
@@ -79,6 +80,26 @@ backend, not the CUPS service, USB or a network connection, and needs no sudo.
 The separate macOS CI PPD check makes only a staged copy root-owned inside its
 ephemeral workspace, because CUPS validates installed-filter ownership even with
 an alternate test root. It does not install the filter in the runner’s system.
+
+## Graphical setup (opt-in)
+
+From this branch, after installing the pinned toolchain:
+
+```sh
+./setup.sh --rust
+```
+
+This rebuilds C, Rust and the app locally, then opens the printer-selection
+window. Search, select your LBP2900, choose **Rust — experimental**, review the
+separate queue change, and authorize the installation through macOS. Nothing is
+installed before that final action. Close the setup window afterward; the driver
+works without the app running. The C queue/filter remain available.
+
+For menu use, `./build.sh --menubar --with-rust` builds the app with both fresh
+payloads. Open `build/LBP2900Progress.app`, choose **Monitor C** or **Monitor Rust**,
+or use **Set Up Printer…**. A normal menu build embeds C only but can monitor an
+already installed Rust queue. The app never downloads drivers or installs Rust
+automatically.
 
 ## Optional manual hardware experiment
 
@@ -103,8 +124,7 @@ permissions to make an installation succeed. Add a **separate** USB queue in
 System Settings → Printers & Scanners. Give it a distinct name such as
 `Canon_LBP2900_Rust_Experiment`, select **Use → Other**, and select the experimental
 PPD above. Keep the C queue and default-printer selection. Do not send jobs to
-both queues at the same time: they share the same physical USB device. The current
-menu app targets the C queue and is outside the Rust experiment.
+both queues at the same time: they share the same physical USB device. The menu app can explicitly select the C or Rust queue for monitoring.
 
 Start with a non-sensitive single-page document; then use the validation matrix
 below. No quarantine removal, Gatekeeper bypass, SIP change, root service, login
@@ -187,8 +207,8 @@ the default implementation, review the accumulated evidence for:
 - Cancellation during raster input, USB send, reply wait, out-of-paper and recovery;
   unplug/replug, power cycle, sleep/wake, concurrent queued jobs and repeated jobs.
 - Comparison to C for page count, output quality, timing, memory and failure cleanup.
-- A separately reviewed opt-in installer and a signing/notarization/release decision
-  before distributing clickable Rust binaries to ordinary users.
+- Broader validation of the opt-in source-built setup flow and a separate
+  signing/notarization/release decision before distributing compiled Rust binaries.
 
 Record OS version, printer identity, commit, toolchain, fixture and observed result
 in [the hardware testing checklist](HARDWARE-TESTING.md). Do not publish document
