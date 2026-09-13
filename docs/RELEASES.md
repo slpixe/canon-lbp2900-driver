@@ -15,7 +15,7 @@ CI builds source, runs offline tests, produces packages and can attest their ori
 This builds locally as a normal user and writes:
 
 - `dist/canon-lbp2900-driver-VERSION-UNSIGNED.pkg`: driver-only Installer package, with OS/CPU gating and a readme. No install scripts, launch services or automatic queue creation.
-- `dist/LBP2900Progress-VERSION-UNSIGNED.zip`: the optional locally signed app; no automatic login startup.
+- `dist/LBP2900Progress-VERSION-UNSIGNED.zip`: the optional locally signed progress/setup app, including the locally built C setup payload; no automatic login startup or driver installation.
 - `dist/SHA256SUMS` and `dist/build-info.json`: hashes, exact source commit, dirty-tree indicator and toolchain information.
 
 The driver package installs only the filter and PPD. Its readme describes selecting the USB printer and PPD in System Settings. The optional app is deliberately separate so nobody has to install it to print. Remove stale files from `dist/` when switching release versions or signing modes, and distribute only the exact artifacts listed in the current checksum manifest.
